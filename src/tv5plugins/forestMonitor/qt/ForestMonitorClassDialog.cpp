@@ -26,6 +26,7 @@
 // TerraLib
 #include <terralib/common/progress/ProgressManager.h>
 #include <terralib/common/progress/TaskProgress.h>
+#include <terralib/common/STLUtils.h>
 #include <terralib/dataaccess/datasource/DataSource.h>
 #include <terralib/dataaccess/datasource/DataSourceInfoManager.h>
 #include <terralib/dataaccess/datasource/DataSourceManager.h>
@@ -35,8 +36,6 @@
 #include <terralib/maptools/Utils.h>
 #include <terralib/qt/widgets/canvas/Canvas.h>
 #include <terralib/qt/widgets/layer/utils/DataSet2Layer.h>
-#include <terralib/qt/widgets/tools/Pan.h>
-#include <terralib/qt/widgets/tools/ZoomWheel.h>
 #include <terralib/raster/RasterFactory.h>
 #include <terralib/raster/RasterSummary.h>
 #include <terralib/raster/RasterSummaryManager.h>
@@ -73,22 +72,6 @@ te::qt::plugins::tv5plugins::ForestMonitorClassDialog::ForestMonitorClassDialog(
   m_ui->setupUi(this);
 
   //build form
-  QGridLayout* displayLayout = new QGridLayout(m_ui->m_originalImgFrame);
-  m_originalMapDisplay.reset( new te::qt::widgets::MapDisplay(m_ui->m_originalImgFrame->size(), m_ui->m_originalImgFrame));
-  displayLayout->addWidget(m_originalMapDisplay.get());
-  displayLayout->setContentsMargins(0,0,0,0);
-
-  te::qt::widgets::Pan* panTool = new te::qt::widgets::Pan(m_originalMapDisplay.get(), Qt::OpenHandCursor, Qt::ClosedHandCursor);
-  te::qt::widgets::ZoomWheel* zoomTool = new te::qt::widgets::ZoomWheel(m_originalMapDisplay.get(), 1.5, m_originalMapDisplay.get());
-
-  m_originalMapDisplay->installEventFilter(panTool);
-  m_originalMapDisplay->installEventFilter(zoomTool);
-
-  QGridLayout* displayLayout2 = new QGridLayout(m_ui->m_ndviImgFrame);
-  m_ndviMapDisplay.reset( new te::qt::widgets::MapDisplay(m_ui->m_ndviImgFrame->size(), m_ui->m_ndviImgFrame));
-  displayLayout2->addWidget(m_ndviMapDisplay.get());
-  displayLayout2->setContentsMargins(0,0,0,0);
-
   QGridLayout* displayLayout3 = new QGridLayout(m_ui->m_thresholdFrame);
   m_thresholdDisplay.reset(new te::qt::widgets::MapDisplay(m_ui->m_thresholdFrame->size(), m_ui->m_thresholdFrame));
   displayLayout3->addWidget(m_thresholdDisplay.get());
@@ -104,10 +87,6 @@ te::qt::plugins::tv5plugins::ForestMonitorClassDialog::ForestMonitorClassDialog(
   m_progressId = te::common::ProgressManager::getInstance().addViewer(m_progressDlg);
 
   // connectors
-  connect(m_originalMapDisplay.get(), SIGNAL(extentChanged()), this, SLOT(onOrignalMapDisplayExtentChanged()));
-  connect(m_ui->m_originalLayerComboBox, SIGNAL(activated(int)), this, SLOT(onOrignalLayerActivated(int)));
-  connect(m_ui->m_recomposeToolButton, SIGNAL(clicked()), this, SLOT(onRecomposeToolButtonClicked()));
-  connect(m_ui->m_ndviLayerComboBox, SIGNAL(activated(int)), this, SLOT(onNDVILayerActivated(int)));
   connect(m_ui->m_thresholdHorizontalSlider, SIGNAL(sliderReleased()), this, SLOT(onThresholdSliderReleased()));
   connect(m_ui->m_generateNDVISamplePushButton, SIGNAL(clicked()), this, SLOT(onGenerateNDVISampleClicked()));
   connect(m_ui->m_generateThresholdPushButton, SIGNAL(clicked()), this, SLOT(onGenerateErosionSampleClicked()));
@@ -119,12 +98,21 @@ te::qt::plugins::tv5plugins::ForestMonitorClassDialog::ForestMonitorClassDialog(
   //validators
   m_ui->m_dilationLineEdit->setValidator(new QDoubleValidator(this));
   m_ui->m_erosionLineEdit->setValidator(new QDoubleValidator(this));
+
+  this->setSizeGripEnabled(true);
 }
 
 te::qt::plugins::tv5plugins::ForestMonitorClassDialog::~ForestMonitorClassDialog()
 {
   te::common::ProgressManager::getInstance().removeViewer(m_progressId);
   delete m_progressDlg;
+}
+
+void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::setExtentInfo(te::gm::Envelope env, int srid)
+{
+  m_srid = srid;
+
+  m_env = env;
 }
 
 void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::setLayerList(std::list<te::map::AbstractLayerPtr> list)
@@ -165,60 +153,19 @@ te::map::AbstractLayerPtr te::qt::plugins::tv5plugins::ForestMonitorClassDialog:
   return m_outputLayer;
 }
 
-void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOrignalLayerActivated(int index)
-{
-  QVariant varLayer = m_ui->m_originalLayerComboBox->itemData(index, Qt::UserRole);
-
-  te::map::AbstractLayerPtr layer = varLayer.value<te::map::AbstractLayerPtr>();
-
-  std::list<te::map::AbstractLayerPtr> layerList;
-  layerList.push_back(layer);
-
-  m_originalMapDisplay->setLayerList(layerList);
-  m_originalMapDisplay->setSRID(layer->getSRID());
-
-  te::gm::Envelope displayExtent(layer->getExtent());
-  m_originalMapDisplay->setExtent(displayExtent);
-}
-
-void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onRecomposeToolButtonClicked()
-{
-  QVariant varLayer = m_ui->m_originalLayerComboBox->itemData(m_ui->m_originalLayerComboBox->currentIndex(), Qt::UserRole);
-
-  te::map::AbstractLayerPtr layer = varLayer.value<te::map::AbstractLayerPtr>();
-
-  te::gm::Envelope displayExtent(layer->getExtent());
-  m_originalMapDisplay->setExtent(displayExtent);
-}
-
-void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onNDVILayerActivated(int index)
-{
-  QVariant varLayer = m_ui->m_ndviLayerComboBox->itemData(index, Qt::UserRole);
-
-  te::map::AbstractLayerPtr layer = varLayer.value<te::map::AbstractLayerPtr>();
-
-  std::list<te::map::AbstractLayerPtr> layerList;
-  layerList.push_back(layer);
-
-  m_ndviMapDisplay->setLayerList(layerList);
-  m_ndviMapDisplay->setSRID(layer->getSRID());
-
-  te::gm::Envelope displayExtent(m_originalMapDisplay->getExtent());
-  m_ndviMapDisplay->setExtent(displayExtent);
-
-  m_ui->m_inputLayerLineEdit->setText(layer->getTitle().c_str());
-}
-
 void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onGenerateNDVISampleClicked()
 {
-  //get current extent
-  te::gm::Envelope ndviRasterExtent(m_ndviMapDisplay->getExtent());
-
   //get input raster
   QVariant varLayer = m_ui->m_ndviLayerComboBox->itemData(m_ui->m_ndviLayerComboBox->currentIndex(), Qt::UserRole);
 
   te::map::AbstractLayerPtr layer = varLayer.value<te::map::AbstractLayerPtr>();
 
+  //get current extent
+  te::gm::Envelope ndviRasterExtent(m_env);
+
+  ndviRasterExtent.transform(m_srid, layer->getSRID());
+  
+  //get ndvi raster
   std::auto_ptr<te::da::DataSet> ds = layer->getData();
 
   std::size_t rpos = te::da::GetFirstPropertyPos(ds.get(), te::dt::RASTER_TYPE);
@@ -237,6 +184,8 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onGenerateNDVISample
   m_thresholdDisplay->setExtent(ndviRasterExtent, false);
 
   drawRaster(m_thresholdRaster.get(), m_thresholdDisplay.get());
+
+  m_ui->m_thresholdHorizontalSlider->setEnabled(true);
 }
 
 void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onThresholdSliderReleased()
@@ -325,38 +274,40 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onThresholdSliderRel
 
   te::rst::Raster* raster = te::rst::RasterFactory::make(grid, bands, rInfo);
 
-  te::common::TaskProgress task("Generating Threshold Raster");
-  task.setTotalSteps(m_thresholdRaster->getNumberOfRows());
-
-  //fill threshold raster
-  for(unsigned int i = 0; i < m_thresholdRaster->getNumberOfRows(); ++i)
   {
-    for(unsigned int j = 0; j < m_thresholdRaster->getNumberOfColumns(); ++j)
+    te::common::TaskProgress task("Generating Threshold Raster");
+    task.setTotalSteps(m_thresholdRaster->getNumberOfRows());
+
+    //fill threshold raster
+    for (unsigned int i = 0; i < m_thresholdRaster->getNumberOfRows(); ++i)
     {
-      double curValue;
-
-      m_thresholdRaster->getValue(j, i, curValue);
-
-      if(curValue <= value)
+      for (unsigned int j = 0; j < m_thresholdRaster->getNumberOfColumns(); ++j)
       {
-        for (std::size_t b = 0; b < originalRaster->getNumberOfBands(); b++)
+        double curValue;
+
+        m_thresholdRaster->getValue(j, i, curValue);
+
+        if (curValue > value)
         {
-          raster->setValue(j, i, 255., b);
+          for (std::size_t b = 0; b < originalRaster->getNumberOfBands(); b++)
+          {
+            raster->setValue(j, i, 255., b);
+          }
+        }
+        else
+        {
+          te::gm::Coord2D cNDVIGrid = m_thresholdRaster->getGrid()->gridToGeo(j, i);
+          te::gm::Coord2D cOriginalGeo = originalRaster->getGrid()->geoToGrid(cNDVIGrid.getX(), cNDVIGrid.getY());
+
+          std::vector<double> values;
+          originalRaster->getValues(te::rst::Round(cOriginalGeo.getX()), te::rst::Round(cOriginalGeo.getY()), values);
+
+          raster->setValues(j, i, values);
         }
       }
-      else
-      {
-        te::gm::Coord2D cNDVIGrid = m_thresholdRaster->getGrid()->gridToGeo(j, i);
-        te::gm::Coord2D cOriginalGeo = originalRaster->getGrid()->geoToGrid(cNDVIGrid.getX(), cNDVIGrid.getY());
 
-        std::vector<double> values;
-        originalRaster->getValues(te::rst::Round(cOriginalGeo.getX()), te::rst::Round(cOriginalGeo.getY()), values);
-
-        raster->setValues(j, i, values);
-      }
+      task.pulse();
     }
-
-    task.pulse();
   }
 
   //draw erosion raster
@@ -431,6 +382,13 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onGenerateErosionSam
   m_erosionDisplay->setExtent(*m_thresholdRaster->getExtent(), false);
 
   drawRaster(m_filterRaster.get(), m_erosionDisplay.get());
+
+  m_ui->m_dilationPushButton->setEnabled(true);
+  m_ui->m_dilationLineEdit->setEnabled(true);
+  
+  m_ui->m_erosionPushButton->setEnabled(false);
+  m_ui->m_erosionLineEdit->setEnabled(false);
+
 }
 
 void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onDilationPushButtonClicked()
@@ -467,12 +425,34 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onDilationPushButton
   }
 
   m_ui->m_dilationResLineEdit->setText(m_ui->m_dilationLineEdit->text());
+
+  m_ui->m_erosionPushButton->setEnabled(true);
+  m_ui->m_erosionLineEdit->setEnabled(true);
 }
 
 void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onErosionPushButtonClicked()
 {
-  if (m_ui->m_erosionLineEdit->text().isEmpty())
+  if (m_ui->m_erosionLineEdit->text().isEmpty() || m_ui->m_dilationLineEdit->text().isEmpty())
     return;
+
+  if(!m_filterDilRaster.get())
+  {
+    QMessageBox::warning(this, tr("Warning"), tr("Erosion Filter not defined."));
+
+    return;
+  }
+
+  int dilationValue = m_ui->m_dilationLineEdit->text().toInt();
+  int erosionValue = m_ui->m_erosionLineEdit->text().toInt();
+
+  if (erosionValue > dilationValue)
+  {
+    QMessageBox::warning(this, tr("Warning"), tr("Invalid dilation value."));
+
+    m_ui->m_erosionLineEdit->setText(QString::number(dilationValue));
+
+    return;
+  }
 
   te::rp::Filter algorithmInstance;
 
@@ -503,12 +483,6 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onErosionPushButtonC
   }
 
   m_ui->m_erosionResLineEdit->setText(m_ui->m_erosionLineEdit->text());
-}
-
-void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOrignalMapDisplayExtentChanged()
-{
-  te::gm::Envelope displayExtent(m_originalMapDisplay->getExtent());
-  m_ndviMapDisplay->setExtent(displayExtent);
 }
 
 void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onTargetFileToolButtonPressed()
@@ -547,12 +521,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
 
   std::string newLayerName = m_ui->m_newLayerNameLineEdit->text().toStdString();
 
-  if (m_ui->m_inputLayerLineEdit->text().isEmpty())
-  {
-    QMessageBox::information(this, tr("Warning"), tr("NDI image layer not selected."));
-    return;
-  }
-
+  //get ndvi layer
   QVariant varLayer = m_ui->m_ndviLayerComboBox->itemData(m_ui->m_ndviLayerComboBox->currentIndex(), Qt::UserRole);
 
   te::map::AbstractLayerPtr ndviLayer = varLayer.value<te::map::AbstractLayerPtr>();
@@ -642,20 +611,44 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     //create erosion raster
     std::auto_ptr<te::rst::Raster> erosionRaster = GenerateFilterRaster(thresholdRaster.get(), 0, dilation, te::rp::Filter::InputParameters::DilationFilterT, type, rInfo);
 
+    thresholdRaster.reset(0);
+
     //create dilation raster
     std::auto_ptr<te::rst::Raster> dilationRaster = GenerateFilterRaster(erosionRaster.get(), 0, erosion, te::rp::Filter::InputParameters::ErosionFilterT, type, rInfo);
+
+    erosionRaster.reset(0);
+
+    //export image
+    if (m_ui->m_saveResultImageCheckBox->isChecked())
+    {
+      std::string repName = m_ui->m_repositoryLineEdit->text().toStdString();
+
+      std::size_t idx = repName.find(".");
+      if (idx != std::string::npos)
+        repName = repName.substr(0, idx);
+
+      std::string rasterFileName = repName + ".tif";
+
+      te::qt::plugins::tv5plugins::ExportRaster(dilationRaster.get(), rasterFileName);
+    }
 
     //create geometries
     std::vector<te::gm::Geometry*> geomVec = te::qt::plugins::tv5plugins::Raster2Vector(dilationRaster.get(), 0);
 
+    dilationRaster.reset(0);
+
     //get centroids
-    std::vector<te::gm::Point*> centroidsVec = te::qt::plugins::tv5plugins::ExtractCentroids(geomVec);
+    std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> centroidsVec = te::qt::plugins::tv5plugins::ExtractCentroids(geomVec);
+
+    te::common::FreeContents(geomVec);
 
     //associate geometries
-    std::map<int, std::vector<te::gm::Point*> > geomPointsMap = AssociateObjects(vecLayer.get(), centroidsVec, ndviRst->getSRID());
+    AssociateObjects(vecLayer.get(), centroidsVec, ndviRst->getSRID());
 
     //export data
-    te::qt::plugins::tv5plugins::ExportVector(geomPointsMap, dataSetName, "OGR", dsInfo, ndviRst->getSRID());
+    te::qt::plugins::tv5plugins::ExportVector(centroidsVec, dataSetName, "OGR", dsInfo, ndviRst->getSRID());
+
+    te::common::FreeContents(centroidsVec);
 
     //create layer
     te::da::DataSourcePtr outDataSource = te::da::GetDataSource(outputDataSource->getId());
@@ -714,6 +707,8 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::drawRaster(te::rst::
   te::se::CoverageStyle* cs = dynamic_cast<te::se::CoverageStyle*>(style);
 
   // Draw raster
+  canvas.clear();
+
   te::map::DrawRaster(raster, &canvas, env, mapDisplay->getSRID(), envRst, raster->getSRID(), cs);
 
   if(hasToDelete)

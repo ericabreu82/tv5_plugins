@@ -28,6 +28,7 @@
 
 // TerraLib
 #include <terralib/dataaccess/datasource/DataSourceInfo.h>
+#include <terralib/geometry/Envelope.h>
 #include <terralib/maptools/AbstractLayer.h>
 #include <terralib/qt/widgets/canvas/MapDisplay.h>
 #include <terralib/qt/widgets/progress/ProgressViewerDialog.h>
@@ -68,17 +69,13 @@ namespace te
 
           public:
 
+            void setExtentInfo(te::gm::Envelope env, int srid);
+
             void setLayerList(std::list<te::map::AbstractLayerPtr> list);
 
             te::map::AbstractLayerPtr getOutputLayer();
 
           protected slots:
-
-            void onOrignalLayerActivated(int index);
-
-            void onRecomposeToolButtonClicked();
-
-            void onNDVILayerActivated(int index);
 
             void onGenerateNDVISampleClicked();
 
@@ -89,8 +86,6 @@ namespace te
             void onDilationPushButtonClicked();
 
             void onErosionPushButtonClicked();
-
-            void onOrignalMapDisplayExtentChanged();
 
             void onTargetFileToolButtonPressed();
 
@@ -103,10 +98,6 @@ namespace te
           private:
 
             std::auto_ptr<Ui::ForestMonitorClassDialogForm> m_ui;
-
-            std::auto_ptr<te::qt::widgets::MapDisplay> m_originalMapDisplay;
-
-            std::auto_ptr<te::qt::widgets::MapDisplay> m_ndviMapDisplay;
 
             std::auto_ptr<te::qt::widgets::MapDisplay> m_thresholdDisplay;
 
@@ -125,6 +116,10 @@ namespace te
             te::qt::widgets::ProgressViewerDialog* m_progressDlg;
 
             int m_progressId;
+
+            te::gm::Envelope m_env;
+
+            int m_srid;
         }; 
       }   // end namespace thirdParty
     }     // end namespace plugins

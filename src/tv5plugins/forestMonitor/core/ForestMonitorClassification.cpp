@@ -125,7 +125,7 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateThresholdRas
   return rasterOut;
 }
 
-void te::qt::plugins::tv5plugins::exportRaster(te::rst::Raster* rasterIn, std::string fileName)
+void te::qt::plugins::tv5plugins::ExportRaster(te::rst::Raster* rasterIn, std::string fileName)
 {
   assert(rasterIn);
 
@@ -144,15 +144,17 @@ std::vector<te::gm::Geometry*> te::qt::plugins::tv5plugins::Raster2Vector(te::rs
   return geomVec;
 }
 
-std::vector<te::gm::Point*> te::qt::plugins::tv5plugins::ExtractCentroids(std::vector<te::gm::Geometry*>& geomVec)
+std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> te::qt::plugins::tv5plugins::ExtractCentroids(std::vector<te::gm::Geometry*>& geomVec)
 {
-  std::vector<te::gm::Point*> points;
+  std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> points;
 
   for(std::size_t t = 0; t < geomVec.size(); ++t)
   {
     te::gm::Geometry* geom = geomVec[t];
 
     te::gm::Point* point = 0;
+
+    double area = 0.;
 
     if(geom->getGeomTypeId() == te::gm::MultiPolygonType)
     {
@@ -161,25 +163,34 @@ std::vector<te::gm::Point*> te::qt::plugins::tv5plugins::ExtractCentroids(std::v
       te::gm::Polygon* p = dynamic_cast<te::gm::Polygon*>(mp->getGeometryN(0));
 
       point = p->getCentroid();
+
+      area = p->getArea();
     }
     else if(geom->getGeomTypeId() == te::gm::PolygonType)
     {
       te::gm::Polygon* p = dynamic_cast<te::gm::Polygon*>(geom);
 
       point = p->getCentroid();
+
+      area = p->getArea();
     }
 
-    if(point)
-     points.push_back(point);
+    if (point)
+    {
+      te::qt::plugins::tv5plugins::CentroidInfo* ci = new te::qt::plugins::tv5plugins::CentroidInfo();
+
+      ci->m_point = point;
+      ci->m_area = area;
+
+      points.push_back(ci);
+    }
   }
 
   return points;
 }
 
-std::map<int, std::vector<te::gm::Point*> > te::qt::plugins::tv5plugins::AssociateObjects(te::map::AbstractLayer* layer, std::vector<te::gm::Point*>& points, int srid)
+void te::qt::plugins::tv5plugins::AssociateObjects(te::map::AbstractLayer* layer, std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& points, int srid)
 {
-  std::map<int, std::vector<te::gm::Point*> > mapPoints;
-
   std::auto_ptr<te::da::DataSet> dataSet = layer->getData();
   std::auto_ptr<te::da::DataSetType> dataSetType = layer->getSchema();
 
@@ -208,28 +219,21 @@ std::map<int, std::vector<te::gm::Point*> > te::qt::plugins::tv5plugins::Associa
 
     int id = dataSet->getInt32(name);
 
-    std::vector<te::gm::Point*> vecPoints;
-
     for (std::size_t t = 0; t < points.size(); ++t)
     {
-      if (g->contains(points[t]))
+      if (g->contains(points[t]->m_point))
       {
-        te::gm::Point* pClone = new te::gm::Point(*points[t]);
-
-        vecPoints.push_back(pClone);
+        points[t]->m_parentId = id;
       }
     }
-
-    if (!vecPoints.empty())
-      mapPoints.insert(std::map<int, std::vector<te::gm::Point*> >::value_type(id, vecPoints));
   }
 
-  return mapPoints;
+  return;
 }
 
-void te::qt::plugins::tv5plugins::ExportVector(std::map<int, std::vector<te::gm::Point*> >& geomPointsMap, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid)
+void te::qt::plugins::tv5plugins::ExportVector(std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& ciVec, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid)
 {
-  assert(!geomPointsMap.empty());
+  assert(!ciVec.empty());
 
   //create dataset type
   std::auto_ptr<te::da::DataSetType> dataSetType(new te::da::DataSetType(dataSetName));
@@ -241,6 +245,10 @@ void te::qt::plugins::tv5plugins::ExportVector(std::map<int, std::vector<te::gm:
   //create origin id property
   te::dt::SimpleProperty* originIdProperty = new te::dt::SimpleProperty("originId", te::dt::INT32_TYPE);
   dataSetType->add(originIdProperty);
+
+  //create area property
+  te::dt::SimpleProperty* areaProperty = new te::dt::SimpleProperty("area", te::dt::DOUBLE_TYPE);
+  dataSetType->add(areaProperty);
 
   //create geometry property
   te::gm::GeometryProperty* geomProperty = new te::gm::GeometryProperty("geom", srid, te::gm::PointType);
@@ -255,36 +263,26 @@ void te::qt::plugins::tv5plugins::ExportVector(std::map<int, std::vector<te::gm:
   //create data set
   std::auto_ptr<te::mem::DataSet> dataSetMem(new te::mem::DataSet(dataSetType.get()));
 
-  std::map<int, std::vector<te::gm::Point*> >::iterator it = geomPointsMap.begin();
-
-  int count = 0;
-
-  while (it != geomPointsMap.end())
+  for (std::size_t t = 0; t < ciVec.size(); ++t)
   {
-    int originId = it->first;
+    //create dataset item
+    te::mem::DataSetItem* item = new te::mem::DataSetItem(dataSetMem.get());
 
-    std::vector<te::gm::Point*> geomVec = it->second;
+    //set id
+    item->setInt32("id", (int)t);
 
-    for (std::size_t t = 0; t < geomVec.size(); ++t)
-    {
-      //create dataset item
-      te::mem::DataSetItem* item = new te::mem::DataSetItem(dataSetMem.get());
+    //set origin id
+    item->setInt32("originId", ciVec[t]->m_parentId);
 
-      //set id
-      item->setInt32("id", count);
+    //set area
+    item->setDouble("area", ciVec[t]->m_area);
 
-      //set origin id
-      item->setInt32("originId", originId);
+    //set geometry
+    te::gm::Point* pClone = new te::gm::Point(*ciVec[t]->m_point);
 
-      //set geometry
-      item->setGeometry("geom", geomVec[t]);
+    item->setGeometry("geom", pClone);
 
-      dataSetMem->add(item);
-
-      ++count;
-    }
-
-    ++it;
+    dataSetMem->add(item);
   }
 
   dataSetMem->moveBeforeFirst();

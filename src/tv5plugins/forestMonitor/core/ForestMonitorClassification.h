@@ -44,6 +44,12 @@ namespace te
     {
       namespace tv5plugins
       {
+        struct CentroidInfo
+        {
+          te::gm::Point* m_point;
+          int m_parentId;
+          double m_area;
+        };
 
         std::auto_ptr<te::rst::Raster> GenerateFilterRaster(te::rst::Raster* raster, int band, int nIter, te::rp::Filter::InputParameters::FilterType fType,
                                                             std::string type, std::map<std::string, std::string> rinfo);
@@ -52,15 +58,15 @@ namespace te
                                                                std::string type, std::map<std::string, std::string> rinfo);
 
 
-        void exportRaster(te::rst::Raster* rasterIn, std::string fileName);
+        void ExportRaster(te::rst::Raster* rasterIn, std::string fileName);
 
         std::vector<te::gm::Geometry*> Raster2Vector(te::rst::Raster* raster, int band);
 
-        std::vector<te::gm::Point*> ExtractCentroids(std::vector<te::gm::Geometry*>& geomVec);
+        std::vector<CentroidInfo*> ExtractCentroids(std::vector<te::gm::Geometry*>& geomVec);
 
-        std::map<int, std::vector<te::gm::Point*> > AssociateObjects(te::map::AbstractLayer* layer, std::vector<te::gm::Point*>& points, int srid);
+        void AssociateObjects(te::map::AbstractLayer* layer, std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& points, int srid);
 
-        void ExportVector(std::map<int, std::vector<te::gm::Point*> >& geomPointsMap, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid);
+        void ExportVector(std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& ciVec, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid);
 
       } // end namespace thirdParty
     }   // end namespace plugins

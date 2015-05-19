@@ -6,16 +6,16 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>672</width>
-    <height>518</height>
+    <width>989</width>
+    <height>846</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Forest Monitor Classification</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout_28">
+  <layout class="QGridLayout" name="gridLayout_29">
    <item row="0" column="0">
-    <layout class="QGridLayout" name="gridLayout_27">
+    <layout class="QGridLayout" name="gridLayout_28">
      <item row="0" column="0">
       <widget class="QFrame" name="frame">
        <property name="styleSheet">
@@ -46,6 +46,112 @@
       </widget>
      </item>
      <item row="1" column="0">
+      <widget class="QGroupBox" name="groupBox_3">
+       <property name="title">
+        <string>Input</string>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
+       </property>
+       <layout class="QGridLayout" name="gridLayout">
+        <item row="0" column="0">
+         <layout class="QGridLayout" name="gridLayout_27">
+          <item row="0" column="0">
+           <layout class="QGridLayout" name="gridLayout_3">
+            <item row="0" column="1">
+             <widget class="QComboBox" name="m_originalLayerComboBox">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label">
+              <property name="minimumSize">
+               <size>
+                <width>100</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Original Layer:</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0">
+           <layout class="QGridLayout" name="gridLayout_9">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_4">
+              <property name="minimumSize">
+               <size>
+                <width>100</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>NDVI Layer:</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QComboBox" name="m_ndviLayerComboBox">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="2" column="0">
+           <layout class="QGridLayout" name="gridLayout_20">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_9">
+              <property name="minimumSize">
+               <size>
+                <width>100</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Vectorial Layer:</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QComboBox" name="m_vecComboBox">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="2" column="0">
       <widget class="QTabWidget" name="tabWidget">
        <property name="tabPosition">
         <enum>QTabWidget::West</enum>
@@ -53,119 +159,6 @@
        <property name="currentIndex">
         <number>0</number>
        </property>
-       <widget class="QWidget" name="tab">
-        <attribute name="title">
-         <string>Original</string>
-        </attribute>
-        <layout class="QGridLayout" name="gridLayout">
-         <item row="1" column="0">
-          <widget class="QFrame" name="m_originalImgFrame">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="frameShape">
-            <enum>QFrame::StyledPanel</enum>
-           </property>
-           <property name="frameShadow">
-            <enum>QFrame::Raised</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="0">
-          <layout class="QGridLayout" name="gridLayout_3">
-           <item row="0" column="0">
-            <widget class="QLabel" name="label">
-             <property name="minimumSize">
-              <size>
-               <width>80</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>Original Layer:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QComboBox" name="m_originalLayerComboBox">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QToolButton" name="m_recomposeToolButton">
-             <property name="text">
-              <string>...</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </widget>
-       <widget class="QWidget" name="tab_2">
-        <attribute name="title">
-         <string>NDVI</string>
-        </attribute>
-        <layout class="QGridLayout" name="gridLayout_2">
-         <item row="1" column="0">
-          <widget class="QFrame" name="m_ndviImgFrame">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="frameShape">
-            <enum>QFrame::StyledPanel</enum>
-           </property>
-           <property name="frameShadow">
-            <enum>QFrame::Raised</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="0">
-          <layout class="QGridLayout" name="gridLayout_9">
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_4">
-             <property name="minimumSize">
-              <size>
-               <width>80</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>NDVI Layer:</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QComboBox" name="m_ndviLayerComboBox">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </widget>
        <widget class="QWidget" name="tab_7">
         <attribute name="title">
          <string>Threshold</string>
@@ -198,7 +191,13 @@
            </item>
            <item row="0" column="1">
             <widget class="QSlider" name="m_thresholdHorizontalSlider">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
              <property name="maximum">
+              <number>999</number>
+             </property>
+             <property name="value">
               <number>999</number>
              </property>
              <property name="orientation">
@@ -244,6 +243,9 @@
             <layout class="QGridLayout" name="gridLayout_12">
              <item row="0" column="3">
               <widget class="QPushButton" name="m_erosionPushButton">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
                <property name="text">
                 <string>Dilation</string>
                </property>
@@ -251,6 +253,9 @@
              </item>
              <item row="0" column="2">
               <widget class="QLineEdit" name="m_dilationLineEdit">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                  <horstretch>0</horstretch>
@@ -267,6 +272,9 @@
              </item>
              <item row="0" column="1">
               <widget class="QPushButton" name="m_dilationPushButton">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
                <property name="text">
                 <string>Erosion</string>
                </property>
@@ -289,6 +297,9 @@
            </item>
            <item row="0" column="2">
             <widget class="QLineEdit" name="m_erosionLineEdit">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
              <property name="sizePolicy">
               <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                <horstretch>0</horstretch>
@@ -309,7 +320,7 @@
        </widget>
        <widget class="QWidget" name="tab_9">
         <attribute name="title">
-         <string>Vector</string>
+         <string>Output</string>
         </attribute>
         <layout class="QGridLayout" name="gridLayout_21">
          <item row="0" column="0">
@@ -317,51 +328,6 @@
            <item row="0" column="0">
             <layout class="QGridLayout" name="gridLayout_17">
              <item row="0" column="0">
-              <widget class="QGroupBox" name="groupBox_3">
-               <property name="title">
-                <string>Input Layer</string>
-               </property>
-               <property name="flat">
-                <bool>true</bool>
-               </property>
-               <layout class="QGridLayout" name="gridLayout_20">
-                <item row="0" column="1">
-                 <widget class="QLineEdit" name="m_inputLayerLineEdit">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="readOnly">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="1">
-                 <widget class="QComboBox" name="m_vecComboBox"/>
-                </item>
-                <item row="0" column="0">
-                 <widget class="QLabel" name="label_3">
-                  <property name="text">
-                   <string>NDVI Layer</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="0">
-                 <widget class="QLabel" name="label_9">
-                  <property name="text">
-                   <string>Vectorial Layer</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-             </item>
-             <item row="1" column="0">
               <widget class="QGroupBox" name="groupBox_2">
                <property name="title">
                 <string>Params</string>
@@ -476,10 +442,10 @@
                </layout>
               </widget>
              </item>
-             <item row="2" column="0">
+             <item row="1" column="0">
               <widget class="QGroupBox" name="groupBox">
                <property name="title">
-                <string>Object</string>
+                <string>Application Area</string>
                </property>
                <property name="flat">
                 <bool>true</bool>
@@ -511,83 +477,24 @@
                </layout>
               </widget>
              </item>
-             <item row="3" column="0">
-              <widget class="QGroupBox" name="groupBox_4">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
+             <item row="2" column="0">
+              <widget class="QGroupBox" name="groupBox_5">
                <property name="title">
-                <string>Output</string>
+                <string>Options</string>
                </property>
                <property name="flat">
                 <bool>true</bool>
                </property>
-               <layout class="QGridLayout" name="gridLayout_22">
+               <layout class="QGridLayout" name="gridLayout_2">
                 <item row="0" column="0">
-                 <layout class="QGridLayout" name="gridLayout_23">
-                  <item row="0" column="0">
-                   <layout class="QGridLayout" name="gridLayout_24">
-                    <item row="0" column="0">
-                     <widget class="QLabel" name="label_7">
-                      <property name="text">
-                       <string>Repository:</string>
-                      </property>
-                      <property name="alignment">
-                       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="1" column="0">
-                     <widget class="QLabel" name="label_8">
-                      <property name="text">
-                       <string>Layer Name:</string>
-                      </property>
-                      <property name="alignment">
-                       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                      </property>
-                     </widget>
-                    </item>
-                   </layout>
-                  </item>
-                  <item row="0" column="1">
-                   <layout class="QGridLayout" name="gridLayout_25">
-                    <item row="0" column="0">
-                     <layout class="QGridLayout" name="gridLayout_26">
-                      <item row="0" column="0">
-                       <widget class="QLineEdit" name="m_repositoryLineEdit">
-                        <property name="enabled">
-                         <bool>false</bool>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="0" column="1">
-                       <widget class="QToolButton" name="m_targetFileToolButton">
-                        <property name="minimumSize">
-                         <size>
-                          <width>0</width>
-                          <height>0</height>
-                         </size>
-                        </property>
-                        <property name="text">
-                         <string>...</string>
-                        </property>
-                       </widget>
-                      </item>
-                     </layout>
-                    </item>
-                    <item row="1" column="0">
-                     <widget class="QLineEdit" name="m_newLayerNameLineEdit">
-                      <property name="readOnly">
-                       <bool>false</bool>
-                      </property>
-                     </widget>
-                    </item>
-                   </layout>
-                  </item>
-                 </layout>
+                 <widget class="QCheckBox" name="m_saveResultImageCheckBox">
+                  <property name="text">
+                   <string>Save result image</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
                 </item>
                </layout>
               </widget>
@@ -613,7 +520,88 @@
        </widget>
       </widget>
      </item>
-     <item row="2" column="0">
+     <item row="3" column="0">
+      <widget class="QGroupBox" name="groupBox_4">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="title">
+        <string>Output</string>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
+       </property>
+       <layout class="QGridLayout" name="gridLayout_22">
+        <item row="1" column="0">
+         <layout class="QGridLayout" name="gridLayout_23">
+          <item row="0" column="0">
+           <layout class="QGridLayout" name="gridLayout_24">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_7">
+              <property name="text">
+               <string>Repository:</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_8">
+              <property name="text">
+               <string>Layer Name:</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="0" column="1">
+           <layout class="QGridLayout" name="gridLayout_25">
+            <item row="0" column="0">
+             <layout class="QGridLayout" name="gridLayout_26">
+              <item row="0" column="0">
+               <widget class="QLineEdit" name="m_repositoryLineEdit">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QToolButton" name="m_targetFileToolButton">
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>...</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLineEdit" name="m_newLayerNameLineEdit">
+              <property name="readOnly">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="4" column="0">
       <layout class="QGridLayout" name="gridLayout_5">
        <item row="0" column="0" colspan="4">
         <widget class="Line" name="line">
@@ -663,12 +651,26 @@
   </layout>
  </widget>
  <tabstops>
-  <tabstop>tabWidget</tabstop>
   <tabstop>m_originalLayerComboBox</tabstop>
   <tabstop>m_ndviLayerComboBox</tabstop>
+  <tabstop>m_vecComboBox</tabstop>
+  <tabstop>tabWidget</tabstop>
   <tabstop>m_generateNDVISamplePushButton</tabstop>
   <tabstop>m_thresholdHorizontalSlider</tabstop>
   <tabstop>m_generateThresholdPushButton</tabstop>
+  <tabstop>m_dilationPushButton</tabstop>
+  <tabstop>m_dilationLineEdit</tabstop>
+  <tabstop>m_erosionPushButton</tabstop>
+  <tabstop>m_erosionLineEdit</tabstop>
+  <tabstop>m_thresholdLineEdit</tabstop>
+  <tabstop>m_dilationResLineEdit</tabstop>
+  <tabstop>m_erosionResLineEdit</tabstop>
+  <tabstop>radioButton</tabstop>
+  <tabstop>radioButton_2</tabstop>
+  <tabstop>m_saveResultImageCheckBox</tabstop>
+  <tabstop>m_repositoryLineEdit</tabstop>
+  <tabstop>m_targetFileToolButton</tabstop>
+  <tabstop>m_newLayerNameLineEdit</tabstop>
   <tabstop>m_okPushButton</tabstop>
   <tabstop>m_cancelPushButton</tabstop>
   <tabstop>m_helpPushButton</tabstop>
@@ -682,8 +684,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>856</x>
-     <y>683</y>
+     <x>660</x>
+     <y>555</y>
     </hint>
     <hint type="destinationlabel">
      <x>420</x>
