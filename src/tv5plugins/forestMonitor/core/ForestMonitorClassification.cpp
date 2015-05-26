@@ -60,7 +60,7 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateFilterRaster
   algoInputParams.m_filterType = fType;
   algoInputParams.m_inRasterBands.push_back(band);
   algoInputParams.m_inRasterPtr = raster;
-  //algoInputParams.m_enableProgress = true;
+  algoInputParams.m_enableProgress = true;
 
   te::rp::Filter::OutputParameters algoOutputParams;
   algoOutputParams.m_rType = type;
@@ -181,6 +181,7 @@ std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> te::qt::plugins::tv5plug
 
       ci->m_point = point;
       ci->m_area = area;
+      ci->m_parentId = -1;
 
       points.push_back(ci);
     }
@@ -265,6 +266,9 @@ void te::qt::plugins::tv5plugins::ExportVector(std::vector<te::qt::plugins::tv5p
 
   for (std::size_t t = 0; t < ciVec.size(); ++t)
   {
+    if (ciVec[t]->m_parentId == -1)
+      continue;
+
     //create dataset item
     te::mem::DataSetItem* item = new te::mem::DataSetItem(dataSetMem.get());
 

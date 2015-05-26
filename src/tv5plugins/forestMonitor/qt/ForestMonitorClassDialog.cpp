@@ -403,6 +403,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onDilationPushButton
   algoInputParams.m_filterType = te::rp::Filter::InputParameters::DilationFilterT;
   algoInputParams.m_inRasterBands.push_back(0);
   algoInputParams.m_inRasterPtr = m_filterRaster.get();
+  algoInputParams.m_enableProgress = true;
 
   std::map<std::string, std::string> rinfo;
   rinfo["MEM_RASTER_NROWS"] = boost::lexical_cast<std::string>(m_filterRaster->getNumberOfRows());
@@ -461,6 +462,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onErosionPushButtonC
   algoInputParams.m_filterType = te::rp::Filter::InputParameters::ErosionFilterT;
   algoInputParams.m_inRasterBands.push_back(0);
   algoInputParams.m_inRasterPtr = m_filterDilRaster.get();
+  algoInputParams.m_enableProgress = true;
 
   std::map<std::string, std::string> rinfo;
   rinfo["MEM_RASTER_NROWS"] = boost::lexical_cast<std::string>(m_filterDilRaster->getNumberOfRows());
@@ -600,23 +602,33 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
 
   try
   {
-    std::map<std::string, std::string> rInfo;
-    rInfo["FORCE_MEM_DRIVER"] = "TRUE";
+    std::string repName = m_ui->m_repositoryLineEdit->text().toStdString();
 
-    std::string type = "MEM";
+    std::size_t idx = repName.find(".");
+    if (idx != std::string::npos)
+      repName = repName.substr(0, idx);
+
+    std::map<std::string, std::string> rInfo;
+    //rInfo["FORCE_MEM_DRIVER"] = "TRUE";
+
+    //std::string type = "MEM";
+    std::string type = "GDAL";
 
     //create threshold raster
+    rInfo["URI"] = repName + "_threshold.tif";
     std::auto_ptr<te::rst::Raster> thresholdRaster = GenerateThresholdRaster(ndviRst.get(), ndviBand, threshold, type, rInfo);
 
     //create erosion raster
+    rInfo["URI"] = repName + "_erosion.tif";
     std::auto_ptr<te::rst::Raster> erosionRaster = GenerateFilterRaster(thresholdRaster.get(), 0, dilation, te::rp::Filter::InputParameters::DilationFilterT, type, rInfo);
 
-    thresholdRaster.reset(0);
+    //thresholdRaster.reset(0);
 
     //create dilation raster
+    rInfo["URI"] = repName + "_dilation.tif";
     std::auto_ptr<te::rst::Raster> dilationRaster = GenerateFilterRaster(erosionRaster.get(), 0, erosion, te::rp::Filter::InputParameters::ErosionFilterT, type, rInfo);
 
-    erosionRaster.reset(0);
+    //erosionRaster.reset(0);
 
     //export image
     if (m_ui->m_saveResultImageCheckBox->isChecked())
@@ -635,7 +647,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     //create geometries
     std::vector<te::gm::Geometry*> geomVec = te::qt::plugins::tv5plugins::Raster2Vector(dilationRaster.get(), 0);
 
-    dilationRaster.reset(0);
+    //dilationRaster.reset(0);
 
     //get centroids
     std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> centroidsVec = te::qt::plugins::tv5plugins::ExtractCentroids(geomVec);
