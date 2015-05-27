@@ -24,9 +24,11 @@
 */
 
 // Terralib
+#include <terralib/qt/af/connectors/MapDisplay.h>
 #include <terralib/qt/af/ApplicationController.h>
 #include <terralib/qt/af/BaseApplication.h>
 #include <terralib/qt/af/Project.h>
+#include <terralib/qt/widgets/canvas/MapDisplay.h>
 #include "qt/ForestMonitorClassDialog.h"
 #include "ForestMonitorClassAction.h"
 
@@ -58,10 +60,21 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassAction::onActionActivated(bo
   //get display extent
   te::qt::af::BaseApplication* ba = dynamic_cast<te::qt::af::BaseApplication*>(te::qt::af::ApplicationController::getInstance().getMainWindow());
 
+  te::gm::Envelope env;
+  int srid = TE_UNKNOWN_SRS;
+
+  if (ba && ba->getDisplay())
+  {
+    env = ba->getDisplay()->getDisplay()->getExtent();
+    srid = ba->getDisplay()->getDisplay()->getSRID();
+  }
+
   //show interface
   te::qt::plugins::tv5plugins::ForestMonitorClassDialog dlg(te::qt::af::ApplicationController::getInstance().getMainWindow());
 
-  dlg.setLayerList(list);
+  dlg.setLayerList(list); 
+
+  dlg.setExtentInfo(env, srid);
 
   if(dlg.exec() == QDialog::Accepted)
   {

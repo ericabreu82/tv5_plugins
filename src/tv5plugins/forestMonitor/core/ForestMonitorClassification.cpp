@@ -148,8 +148,16 @@ std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> te::qt::plugins::tv5plug
 {
   std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> points;
 
+  te::common::TaskProgress task("Extracting Centroids");
+  task.setTotalSteps(geomVec.size());
+
   for(std::size_t t = 0; t < geomVec.size(); ++t)
   {
+    if (!task.isActive())
+    {
+      break;
+    }
+
     te::gm::Geometry* geom = geomVec[t];
 
     te::gm::Point* point = 0;
@@ -185,6 +193,8 @@ std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> te::qt::plugins::tv5plug
 
       points.push_back(ci);
     }
+
+    task.pulse();
   }
 
   return points;
@@ -206,12 +216,27 @@ void te::qt::plugins::tv5plugins::AssociateObjects(te::map::AbstractLayer* layer
   te::da::PrimaryKey* pk = dataSetType->getPrimaryKey();
   std::string name = pk->getProperties()[0]->getName();
 
+  std::size_t size = dataSet->size();
+
   dataSet->moveBeforeFirst();
+
+  te::common::TaskProgress task("Associating Centroids");
+  task.setTotalSteps(size);
 
   //get geometries
   while (dataSet->moveNext())
   {
+    if (!task.isActive())
+    {
+      break;
+    }
+
     std::auto_ptr<te::gm::Geometry> g(dataSet->getGeometry(gpos));
+
+    if (!g->isValid())
+    {
+      continue;
+    }
 
     g->setSRID(layer->getSRID());
 
@@ -227,6 +252,8 @@ void te::qt::plugins::tv5plugins::AssociateObjects(te::map::AbstractLayer* layer
         points[t]->m_parentId = id;
       }
     }
+
+    task.pulse();
   }
 
   return;
@@ -264,8 +291,16 @@ void te::qt::plugins::tv5plugins::ExportVector(std::vector<te::qt::plugins::tv5p
   //create data set
   std::auto_ptr<te::mem::DataSet> dataSetMem(new te::mem::DataSet(dataSetType.get()));
 
+  te::common::TaskProgress task("Exporting Centroids");
+  task.setTotalSteps(ciVec.size());
+
   for (std::size_t t = 0; t < ciVec.size(); ++t)
   {
+    if (!task.isActive())
+    {
+      break;
+    }
+
     if (ciVec[t]->m_parentId == -1)
       continue;
 
@@ -287,6 +322,8 @@ void te::qt::plugins::tv5plugins::ExportVector(std::vector<te::qt::plugins::tv5p
     item->setGeometry("geom", pClone);
 
     dataSetMem->add(item);
+
+    task.pulse();
   }
 
   dataSetMem->moveBeforeFirst();

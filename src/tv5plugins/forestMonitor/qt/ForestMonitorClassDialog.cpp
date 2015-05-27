@@ -622,13 +622,13 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     rInfo["URI"] = repName + "_erosion.tif";
     std::auto_ptr<te::rst::Raster> erosionRaster = GenerateFilterRaster(thresholdRaster.get(), 0, dilation, te::rp::Filter::InputParameters::DilationFilterT, type, rInfo);
 
-    //thresholdRaster.reset(0);
+    thresholdRaster.reset(0);
 
     //create dilation raster
     rInfo["URI"] = repName + "_dilation.tif";
     std::auto_ptr<te::rst::Raster> dilationRaster = GenerateFilterRaster(erosionRaster.get(), 0, erosion, te::rp::Filter::InputParameters::ErosionFilterT, type, rInfo);
 
-    //erosionRaster.reset(0);
+    erosionRaster.reset(0);
 
     //export image
     if (m_ui->m_saveResultImageCheckBox->isChecked())
@@ -647,12 +647,14 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     //create geometries
     std::vector<te::gm::Geometry*> geomVec = te::qt::plugins::tv5plugins::Raster2Vector(dilationRaster.get(), 0);
 
-    //dilationRaster.reset(0);
+    dilationRaster.reset(0);
 
     //get centroids
     std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> centroidsVec = te::qt::plugins::tv5plugins::ExtractCentroids(geomVec);
 
     te::common::FreeContents(geomVec);
+
+    geomVec.clear();
 
     //associate geometries
     AssociateObjects(vecLayer.get(), centroidsVec, ndviRst->getSRID());
@@ -661,6 +663,8 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     te::qt::plugins::tv5plugins::ExportVector(centroidsVec, dataSetName, "OGR", dsInfo, ndviRst->getSRID());
 
     te::common::FreeContents(centroidsVec);
+
+    centroidsVec.clear();
 
     //create layer
     te::da::DataSourcePtr outDataSource = te::da::GetDataSource(outputDataSource->getId());
