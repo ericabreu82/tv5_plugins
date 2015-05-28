@@ -44,6 +44,7 @@ namespace te
       {
         class ForestMonitorAction;
         class ForestMonitorClassAction;
+        class ForestMonitorToolBarAction;
         class NDVIAction;
         class PhotoIndexAction;
         class TileGeneratorAction;
@@ -82,6 +83,7 @@ namespace te
             te::qt::plugins::tv5plugins::TileGeneratorAction* m_tileGenerator;              //!< Tile Generator Operation Process Action
             te::qt::plugins::tv5plugins::ForestMonitorAction* m_forestMonitor;              //!< Forest Monitor Operation Process Action
             te::qt::plugins::tv5plugins::ForestMonitorClassAction* m_forestMonitorClass;    //!< Forest Monitor Class Operation Process Action
+            te::qt::plugins::tv5plugins::ForestMonitorToolBarAction* m_forestMonitorToolBar;//!< Forest Monitor Tool Bar Operation Process Action
             te::qt::plugins::tv5plugins::NDVIAction* m_ndvi;                                //!< NDVI Operation Process Action
             te::qt::plugins::tv5plugins::PhotoIndexAction* m_photoIndex;                    //!< Photo Index Operation Process Action
         };

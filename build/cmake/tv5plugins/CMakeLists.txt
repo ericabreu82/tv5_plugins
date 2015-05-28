@@ -58,6 +58,12 @@ file(GLOB TV5PLG_FOREST_QT_HDR_FILES ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/
 source_group("Source Files\\forestMonitor\\qt"  FILES ${TV5PLG_FOREST_QT_SRC_FILES})
 source_group("Header Files\\forestMonitor\\qt"  FILES ${TV5PLG_FOREST_QT_HDR_FILES})
 
+file(GLOB TV5PLG_FOREST_TOOLS_QT_SRC_FILES ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/forestMonitor/qt/tools/*.cpp)
+file(GLOB TV5PLG_FOREST_TOOLS_QT_HDR_FILES ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/forestMonitor/qt/tools/*.h)
+
+source_group("Source Files\\forestMonitor\\qt\\tools"  FILES ${TV5PLG_FOREST_TOOLS_QT_SRC_FILES})
+source_group("Header Files\\forestMonitor\\qt\\tools"  FILES ${TV5PLG_FOREST_TOOLS_QT_HDR_FILES})
+
 file(GLOB TV5PLG_FOREST_UI_FILES  ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/forestMonitor/qt/ui/*.ui)
 
 source_group("UI Files\\forestMonitor"  FILES ${TV5PLG_FOREST_UI_FILES})
@@ -104,6 +110,8 @@ set(TV5PLG_FILES ${TV5PLG_SRC_FILES}
 				   ${TV5PLG_FOREST_CORE_HDR_FILES}
 				   ${TV5PLG_FOREST_QT_SRC_FILES} 
 				   ${TV5PLG_FOREST_QT_HDR_FILES}
+				   ${TV5PLG_FOREST_TOOLS_QT_SRC_FILES}
+				   ${TV5PLG_FOREST_TOOLS_QT_HDR_FILES}
 				   ${TV5PLG_PHOTOINDEX_SRC_FILES} 
 				   ${TV5PLG_PHOTOINDEX_HDR_FILES} 
 				   ${TV5PLG_PHOTOINDEX_CORE_SRC_FILES} 

@@ -38,6 +38,10 @@
   #include "forestMonitor/ForestMonitorClassAction.h"
 #endif
 
+#ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITORTOOLBAR
+#include "forestMonitor/ForestMonitorToolBarAction.h"
+#endif
+
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_NDVI
   #include "forestMonitor/NDVIAction.h"
 #endif
@@ -111,6 +115,10 @@ void te::qt::plugins::tv5plugins::Plugin::registerActions()
   m_forestMonitorClass = new te::qt::plugins::tv5plugins::ForestMonitorClassAction(m_menu);
 #endif
 
+#ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITORTOOLBAR
+  m_forestMonitorToolBar = new te::qt::plugins::tv5plugins::ForestMonitorToolBarAction(m_menu);
+#endif
+
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_NDVI
   m_ndvi = new te::qt::plugins::tv5plugins::NDVIAction(m_menu);
 #endif
@@ -132,6 +140,10 @@ void  te::qt::plugins::tv5plugins::Plugin::unRegisterActions()
 
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITORCLASS
     delete m_forestMonitorClass;
+#endif
+
+#ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITORTOOLBAR
+    delete m_forestMonitorToolBar;
 #endif
 
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_NDVI

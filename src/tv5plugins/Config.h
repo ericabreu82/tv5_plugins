@@ -52,6 +52,13 @@
 #define TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITORCLASS
 
 /*!
+\def TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITORTOOLBAR
+
+\brief It defines if the third Party Qt Plugin has the forest monitor tool bar
+*/
+#define TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITORTOOLBAR
+
+/*!
   \def TE_QT_PLUGIN_THIRDPARTY_HAVE_NDVI
 
   \brief It defines if the third Party Qt Plugin has the NDVI operation.
