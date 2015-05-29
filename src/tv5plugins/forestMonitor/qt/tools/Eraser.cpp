@@ -24,6 +24,14 @@
 */
 
 // TerraLib
+#include <terralib/dataaccess/dataset/DataSet.h>
+#include <terralib/dataaccess/dataset/DataSetType.h>
+#include <terralib/dataaccess/dataset/ObjectIdSet.h>
+#include <terralib/dataaccess/utils/Utils.h>
+#include <terralib/geometry/Geometry.h>
+#include <terralib/geometry/GeometryProperty.h>
+#include <terralib/geometry/Utils.h>
+#include <terralib/maptools/DataSetLayer.h>
 #include <terralib/qt/widgets/canvas/Canvas.h>
 #include <terralib/qt/widgets/canvas/MapDisplay.h>
 #include "Eraser.h"
@@ -37,9 +45,9 @@
 #include <cassert>
 #include <memory>
 
-te::qt::plugins::tv5plugins::Eraser::Eraser(te::qt::widgets::MapDisplay* display, const QCursor& cursor, const std::list<te::map::AbstractLayerPtr>& layers, QObject* parent)
+te::qt::plugins::tv5plugins::Eraser::Eraser(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr layer, QObject* parent)
   : AbstractTool(display, parent),
-    m_layers(layers)
+    m_layer(layer)
 {
   setCursor(cursor);
 }
@@ -55,7 +63,7 @@ bool te::qt::plugins::tv5plugins::Eraser::mouseReleaseEvent(QMouseEvent* e)
   if(e->button() != Qt::LeftButton)
     return false;
 
-  if(m_layers.empty())
+  if(!m_layer.get())
     return false;
 
   QPointF pixelOffset(4.0, 4.0);
@@ -74,15 +82,81 @@ bool te::qt::plugins::tv5plugins::Eraser::mouseReleaseEvent(QMouseEvent* e)
   // Bulding the query box
   te::gm::Envelope envelope(ll.x(), ll.y(), ur.x(), ur.y());
 
-  m_display->repaint();
+  te::gm::Envelope reprojectedEnvelope(envelope);
 
-  //remove geom using datasource - execute query
+  if ((m_layer->getSRID() != TE_UNKNOWN_SRS) && (m_display->getSRID() != TE_UNKNOWN_SRS) && (m_layer->getSRID() != m_display->getSRID()))
+    reprojectedEnvelope.transform(m_display->getSRID(), m_layer->getSRID());
+
+  if (!reprojectedEnvelope.intersects(m_layer->getExtent()))
+    return false;
+
+  try
+  {
+    // Gets the layer schema
+    std::auto_ptr<const te::map::LayerSchema> schema(m_layer->getSchema());
+
+    if (!schema->hasGeom())
+      return false;
+
+    te::gm::GeometryProperty* gp = te::da::GetFirstGeomProperty(schema.get());
+
+    // Gets the dataset
+    std::auto_ptr<te::da::DataSet> dataset = m_layer->getData(gp->getName(), &reprojectedEnvelope, te::gm::INTERSECTS);
+    assert(dataset.get());
+
+    // Let's generate the oids
+    te::da::ObjectIdSet* oids = 0;
+    te::da::GetEmptyOIDSet(schema.get(), oids);
+    assert(oids);
+
+    std::vector<std::string> pnames;
+    te::da::GetOIDPropertyNames(schema.get(), pnames);
+
+    // Generates a geometry from the given extent. It will be used to refine the results
+    std::auto_ptr<te::gm::Geometry> geometryFromEnvelope(te::gm::GetGeomFromEnvelope(&reprojectedEnvelope, m_layer->getSRID()));
+
+    while (dataset->moveNext())
+    {
+      std::auto_ptr<te::gm::Geometry> g(dataset->getGeometry(gp->getName()));
+
+      if (g->getSRID() == TE_UNKNOWN_SRS)
+        g->setSRID(m_layer->getSRID());
+
+      if (!g->intersects(geometryFromEnvelope.get()))
+        continue;
+
+      // Feature found
+      oids->add(te::da::GenerateOID(dataset.get(), pnames));
+    }
+     
+    //remove entries
+    if (oids->size() != 0)
+    {
+      te::map::DataSetLayer* dsLayer = dynamic_cast<te::map::DataSetLayer*>(m_layer.get());
+
+      if (dsLayer)
+      {
+        te::da::DataSourcePtr dataSource = te::da::GetDataSource(dsLayer->getDataSourceId());
+
+        dataSource->remove(schema->getName(), oids);
+      }
+    }
+
+  }
+  catch (std::exception& e)
+  {
+    QMessageBox::critical(m_display, tr("Error"), QString(tr("Error erasing geometry. Details:") + " %1.").arg(e.what()));
+    return false;
+  }
+
+  //repaint the layer
+  m_display->refresh();
 
   return true;
 }
 
-void te::qt::plugins::tv5plugins::Eraser::setLayers(const std::list<te::map::AbstractLayerPtr>& layers)
+void te::qt::plugins::tv5plugins::Eraser::setLayer(te::map::AbstractLayerPtr layer)
 {
-  m_layers = layers;
+  m_layer = layer;
 }
 
