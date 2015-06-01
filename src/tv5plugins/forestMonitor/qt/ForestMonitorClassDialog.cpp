@@ -31,6 +31,7 @@
 #include <terralib/dataaccess/datasource/DataSourceInfoManager.h>
 #include <terralib/dataaccess/datasource/DataSourceManager.h>
 #include <terralib/dataaccess/utils/Utils.h>
+#include <terralib/geometry/MultiPolygon.h>
 #include <terralib/geometry/Utils.h>
 #include <terralib/maptools/DataSetLayer.h>
 #include <terralib/maptools/Utils.h>
@@ -609,55 +610,120 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
       repName = repName.substr(0, idx);
 
     std::map<std::string, std::string> rInfo;
-    //rInfo["FORCE_MEM_DRIVER"] = "TRUE";
+    rInfo["FORCE_MEM_DRIVER"] = "TRUE";
 
-    //std::string type = "MEM";
-    std::string type = "GDAL";
+    std::string type = "MEM";
+    //std::string type = "GDAL";
 
-    //create threshold raster
-    rInfo["URI"] = repName + "_threshold.tif";
-    std::auto_ptr<te::rst::Raster> thresholdRaster = GenerateThresholdRaster(ndviRst.get(), ndviBand, threshold, type, rInfo);
+    std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> centroidsVec;
 
-    //create erosion raster
-    rInfo["URI"] = repName + "_erosion.tif";
-    std::auto_ptr<te::rst::Raster> erosionRaster = GenerateFilterRaster(thresholdRaster.get(), 0, dilation, te::rp::Filter::InputParameters::DilationFilterT, type, rInfo);
+    std::auto_ptr<te::da::DataSet> dataSet = vecLayer->getData();
+    std::auto_ptr<te::da::DataSetType> dataSetType = vecLayer->getSchema();
 
-    thresholdRaster.reset(0);
+    std::size_t gpos = te::da::GetFirstPropertyPos(dataSet.get(), te::dt::GEOMETRY_TYPE);
+    te::gm::GeometryProperty* geomProp = te::da::GetFirstGeomProperty(dataSetType.get());
 
-    //create dilation raster
-    rInfo["URI"] = repName + "_dilation.tif";
-    std::auto_ptr<te::rst::Raster> dilationRaster = GenerateFilterRaster(erosionRaster.get(), 0, erosion, te::rp::Filter::InputParameters::ErosionFilterT, type, rInfo);
+    bool remap = false;
 
-    erosionRaster.reset(0);
+    if (vecLayer->getSRID() != ndviRst->getSRID())
+      remap = true;
 
-    //export image
-    if (m_ui->m_saveResultImageCheckBox->isChecked())
+    te::da::PrimaryKey* pk = dataSetType->getPrimaryKey();
+    std::string name = pk->getProperties()[0]->getName();
+
+    std::size_t size = dataSet->size();
+
+    dataSet->moveBeforeFirst();
+
+    te::common::TaskProgress task("Associating Centroids");
+    task.setTotalSteps(size);
+
+    //get geometries
+    while (dataSet->moveNext())
     {
-      std::string repName = m_ui->m_repositoryLineEdit->text().toStdString();
+      if (!task.isActive())
+      {
+        break;
+      }
 
-      std::size_t idx = repName.find(".");
-      if (idx != std::string::npos)
-        repName = repName.substr(0, idx);
+      std::auto_ptr<te::gm::Geometry> g(dataSet->getGeometry(gpos));
 
-      std::string rasterFileName = repName + ".tif";
+      if (!g->isValid())
+      {
+        continue;
+      }
 
-      te::qt::plugins::tv5plugins::ExportRaster(dilationRaster.get(), rasterFileName);
+      g->setSRID(vecLayer->getSRID());
+
+      if (remap)
+        g->transform(ndviRst->getSRID());
+
+      int parcelId = dataSet->getInt32(name);
+
+      te::gm::Polygon* poly = 0;
+
+      if (g->getGeomTypeId() == te::gm::MultiPolygonType)
+      {
+        te::gm::MultiPolygon* mPoly = dynamic_cast<te::gm::MultiPolygon*>(g.get());
+
+        poly = dynamic_cast<te::gm::Polygon*>(mPoly->getGeometryN(0));
+      }
+      else if (g->getGeomTypeId() == te::gm::PolygonType)
+      {
+        poly = dynamic_cast<te::gm::Polygon*>(g.get());
+      }
+
+      if (!poly || !poly->isValid())
+        continue;
+
+      //create raster crop from parcel
+      te::rst::RasterPtr parcelRaster(te::rst::CropRaster(*ndviRst.get(), *poly, rInfo, type));
+
+      //create threshold raster
+      //rInfo["URI"] = repName + "_threshold.tif";
+      std::auto_ptr<te::rst::Raster> thresholdRaster = GenerateThresholdRaster(parcelRaster.get(), ndviBand, threshold, type, rInfo);
+
+      //create erosion raster
+      //rInfo["URI"] = repName + "_erosion.tif";
+      std::auto_ptr<te::rst::Raster> erosionRaster = GenerateFilterRaster(thresholdRaster.get(), 0, dilation, te::rp::Filter::InputParameters::DilationFilterT, type, rInfo);
+
+      thresholdRaster.reset(0);
+
+      //create dilation raster
+      //rInfo["URI"] = repName + "_dilation.tif";
+      std::auto_ptr<te::rst::Raster> dilationRaster = GenerateFilterRaster(erosionRaster.get(), 0, erosion, te::rp::Filter::InputParameters::ErosionFilterT, type, rInfo);
+
+      erosionRaster.reset(0);
+
+      //export image
+      if (m_ui->m_saveResultImageCheckBox->isChecked())
+      {
+        std::string repName = m_ui->m_repositoryLineEdit->text().toStdString();
+
+        std::size_t idx = repName.find(".");
+        if (idx != std::string::npos)
+          repName = repName.substr(0, idx);
+
+        std::string rasterFileName = repName + ".tif";
+
+        te::qt::plugins::tv5plugins::ExportRaster(dilationRaster.get(), rasterFileName);
+      }
+
+      //create geometries
+      std::vector<te::gm::Geometry*> geomVec = te::qt::plugins::tv5plugins::Raster2Vector(dilationRaster.get(), 0);
+
+      dilationRaster.reset(0);
+
+      //get centroids
+      te::qt::plugins::tv5plugins::ExtractCentroids(geomVec, centroidsVec, parcelId);
+
+      te::common::FreeContents(geomVec);
+
+      geomVec.clear();
     }
 
-    //create geometries
-    std::vector<te::gm::Geometry*> geomVec = te::qt::plugins::tv5plugins::Raster2Vector(dilationRaster.get(), 0);
-
-    dilationRaster.reset(0);
-
-    //get centroids
-    std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> centroidsVec = te::qt::plugins::tv5plugins::ExtractCentroids(geomVec);
-
-    te::common::FreeContents(geomVec);
-
-    geomVec.clear();
-
     //associate geometries
-    AssociateObjects(vecLayer.get(), centroidsVec, ndviRst->getSRID());
+    //AssociateObjects(vecLayer.get(), centroidsVec, ndviRst->getSRID());
 
     //export data
     te::qt::plugins::tv5plugins::ExportVector(centroidsVec, dataSetName, "OGR", dsInfo, ndviRst->getSRID());

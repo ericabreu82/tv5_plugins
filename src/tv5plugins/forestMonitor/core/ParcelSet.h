@@ -27,6 +27,7 @@ TerraLib Team at <terralib-team@terralib.org>.
 #define __TE_QT_PLUGINS_THIRDPARTY_INTERNAL_TOOL_PARCELSET_H
 
 // TerraLib
+#include <terralib/maptools/AbstractLayer.h>
 #include "../../Config.h"
 
 // STL
@@ -35,8 +36,6 @@ TerraLib Team at <terralib-team@terralib.org>.
 
 namespace te
 {
-  namespace map { class AbstractLayerPtr; }
-
   namespace rst { class Raster; }
 
   namespace qt
@@ -72,13 +71,23 @@ namespace te
 
           //@}
 
-          void classify(te::rst::Raster* raster);
+          void classify(te::rst::Raster* ndviRaster, int ndviBand, double threshold, int nErosion, int nDilation, bool exportRaster, std::string rasterPath = "");
 
           void export(std::string type, std::map<std::string, std::string> connInfo);
+
+        protected:
+
+          void getDataSetTypeInfo(te::da::DataSetType* dsType, int& idIdx, int& geomIdx);
+
 
         private:
 
           std::set<te::qt::plugins::tv5plugins::Parcel*> m_parcelSet;
+          
+          te::map::AbstractLayerPtr m_parcelLayer;
+
+          te::map::AbstractLayerPtr m_angleLayer;
+
         };
 
       } // end namespace tv5plugins

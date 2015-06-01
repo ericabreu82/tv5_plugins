@@ -60,7 +60,7 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateFilterRaster
   algoInputParams.m_filterType = fType;
   algoInputParams.m_inRasterBands.push_back(band);
   algoInputParams.m_inRasterPtr = raster;
-  algoInputParams.m_enableProgress = true;
+  algoInputParams.m_enableProgress = false;
 
   te::rp::Filter::OutputParameters algoOutputParams;
   algoOutputParams.m_rType = type;
@@ -97,9 +97,6 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateThresholdRas
 
   rasterOut.reset(rOut);
 
-  te::common::TaskProgress task("Generating Threshold Raster");
-  task.setTotalSteps(raster->getNumberOfRows());
-
   //fill threshold raster
   for (unsigned int i = 0; i < raster->getNumberOfRows(); ++i)
   {
@@ -118,8 +115,6 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateThresholdRas
         rasterOut->setValue(j, i, 0.);
       }
     }
-
-    task.pulse();
   }
 
   return rasterOut;
@@ -144,20 +139,10 @@ std::vector<te::gm::Geometry*> te::qt::plugins::tv5plugins::Raster2Vector(te::rs
   return geomVec;
 }
 
-std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> te::qt::plugins::tv5plugins::ExtractCentroids(std::vector<te::gm::Geometry*>& geomVec)
+void te::qt::plugins::tv5plugins::ExtractCentroids(std::vector<te::gm::Geometry*>& geomVec, std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& centroids, int parcelId)
 {
-  std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> points;
-
-  te::common::TaskProgress task("Extracting Centroids");
-  task.setTotalSteps(geomVec.size());
-
   for(std::size_t t = 0; t < geomVec.size(); ++t)
   {
-    if (!task.isActive())
-    {
-      break;
-    }
-
     te::gm::Geometry* geom = geomVec[t];
 
     te::gm::Point* point = 0;
@@ -189,15 +174,11 @@ std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> te::qt::plugins::tv5plug
 
       ci->m_point = point;
       ci->m_area = area;
-      ci->m_parentId = -1;
+      ci->m_parentId = parcelId;
 
-      points.push_back(ci);
+      centroids.push_back(ci);
     }
-
-    task.pulse();
   }
-
-  return points;
 }
 
 void te::qt::plugins::tv5plugins::AssociateObjects(te::map::AbstractLayer* layer, std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& points, int srid)

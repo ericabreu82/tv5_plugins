@@ -62,7 +62,7 @@ namespace te
 
         std::vector<te::gm::Geometry*> Raster2Vector(te::rst::Raster* raster, int band);
 
-        std::vector<CentroidInfo*> ExtractCentroids(std::vector<te::gm::Geometry*>& geomVec);
+        void ExtractCentroids(std::vector<te::gm::Geometry*>& geomVec, std::vector<CentroidInfo*>& centroids, int parcelId);
 
         void AssociateObjects(te::map::AbstractLayer* layer, std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& points, int srid);
 
