@@ -27,6 +27,7 @@
 #define __TE_QT_PLUGINS_THIRDPARTY_INTERNAL_TOOL_ERASER_H
 
 // TerraLib
+#include <terralib/dataaccess/dataset/ObjectIdSet.h>
 #include <terralib/maptools/AbstractLayer.h>
 #include <terralib/qt/widgets/tools/AbstractTool.h>
 #include "../../../Config.h"
@@ -97,9 +98,19 @@ namespace te
 
           void setLayer(te::map::AbstractLayerPtr layer);
 
+        protected:
+
+          void selectObjects(QMouseEvent* e);
+
+          void removeObjects();
+
+          void drawSelecteds();
+
         private:
 
           te::map::AbstractLayerPtr m_layer;        //!<The layer that will be queried.
+
+          te::da::ObjectIdSet* m_objIdSet;
         };
 
       } // end namespace tv5plugins
