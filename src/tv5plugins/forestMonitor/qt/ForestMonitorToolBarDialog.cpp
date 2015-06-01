@@ -86,17 +86,13 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onEraserToolButton
   if (!m_appDisplay)
     return;
 
-  std::list<te::map::AbstractLayerPtr> list;
-
   QVariant varLayer = m_ui->m_layerComboBox->itemData(m_ui->m_layerComboBox->currentIndex(), Qt::UserRole);
 
   te::map::AbstractLayerPtr layer = varLayer.value<te::map::AbstractLayerPtr>();
 
-  list.push_back(layer);
-
   QPixmap pxmap = QIcon::fromTheme("pointer-remove-selection").pixmap(QSize(16, 16));
   QCursor cursor(pxmap, 0, 0);
 
-  te::qt::plugins::tv5plugins::Eraser* tool = new te::qt::plugins::tv5plugins::Eraser(m_appDisplay->getDisplay(), cursor, list);
+  te::qt::plugins::tv5plugins::Eraser* tool = new te::qt::plugins::tv5plugins::Eraser(m_appDisplay->getDisplay(), cursor, layer);
   m_appDisplay->setCurrentTool(tool);
 }

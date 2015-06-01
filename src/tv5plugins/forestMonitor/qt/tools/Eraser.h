@@ -27,6 +27,7 @@
 #define __TE_QT_PLUGINS_THIRDPARTY_INTERNAL_TOOL_ERASER_H
 
 // TerraLib
+#include <terralib/dataaccess/dataset/ObjectIdSet.h>
 #include <terralib/maptools/AbstractLayer.h>
 #include <terralib/qt/widgets/tools/AbstractTool.h>
 #include "../../../Config.h"
@@ -77,7 +78,7 @@ namespace te
 
             \note The tool will NOT take the ownership of the given pointers.
             */
-          Eraser(te::qt::widgets::MapDisplay* display, const QCursor& cursor, const std::list<te::map::AbstractLayerPtr>& layers, QObject* parent = 0);
+          Eraser(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr layer, QObject* parent = 0);
 
           /*! \brief Destructor. */
           ~Eraser();
@@ -95,11 +96,21 @@ namespace te
 
           public slots:
 
-          void setLayers(const std::list<te::map::AbstractLayerPtr>& layers);
+          void setLayer(te::map::AbstractLayerPtr layer);
+
+        protected:
+
+          void selectObjects(QMouseEvent* e);
+
+          void removeObjects();
+
+          void drawSelecteds();
 
         private:
 
-          std::list<te::map::AbstractLayerPtr> m_layers;        //!<The layer list that will be queried.
+          te::map::AbstractLayerPtr m_layer;        //!<The layer that will be queried.
+
+          te::da::ObjectIdSet* m_objIdSet;
         };
 
       } // end namespace tv5plugins
