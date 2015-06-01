@@ -38,6 +38,8 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDia
   // add controls
   m_ui->setupUi(this);
 
+  m_ui->m_eraserToolButton->setIcon(QIcon::fromTheme("pointer-remove-selection"));
+
   connect(m_ui->m_eraserToolButton, SIGNAL(toggled(bool)), this, SLOT(onEraserToolButtonClicked(bool)));
 }
 
