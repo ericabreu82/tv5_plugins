@@ -77,7 +77,7 @@ namespace te
 
         private:
 
-          std::list<te::qt::plugins::tv5plugins::Tree*> m_treeSet;
+          std::list<te::qt::plugins::tv5plugins::Tree*> m_treeList;
 
           double m_avgDistance;
         };

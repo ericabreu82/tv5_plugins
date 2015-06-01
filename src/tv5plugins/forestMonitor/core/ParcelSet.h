@@ -30,7 +30,7 @@ TerraLib Team at <terralib-team@terralib.org>.
 #include "../../Config.h"
 
 // STL
-#incldue <map>
+#include <map>
 #include <set>
 
 namespace te
