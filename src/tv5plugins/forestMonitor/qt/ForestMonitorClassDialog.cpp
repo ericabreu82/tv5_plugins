@@ -27,6 +27,7 @@
 #include <terralib/common/progress/ProgressManager.h>
 #include <terralib/common/progress/TaskProgress.h>
 #include <terralib/common/STLUtils.h>
+#include <terralib/common/StringUtils.h>
 #include <terralib/dataaccess/datasource/DataSource.h>
 #include <terralib/dataaccess/datasource/DataSourceInfoManager.h>
 #include <terralib/dataaccess/datasource/DataSourceManager.h>
@@ -535,6 +536,8 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
 
   std::auto_ptr<te::rst::Raster> ndviRst = ndviDS->getRaster(ndviRpos);
 
+  ndviRst->getGrid()->setSRID(ndviLayer->getSRID());
+
   int ndviBand = 0;
 
   if (m_ui->m_thresholdLineEdit->text().isEmpty())
@@ -610,10 +613,10 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
       repName = repName.substr(0, idx);
 
     std::map<std::string, std::string> rInfo;
-    rInfo["FORCE_MEM_DRIVER"] = "TRUE";
+    //rInfo["FORCE_MEM_DRIVER"] = "TRUE";
 
-    std::string type = "MEM";
-    //std::string type = "GDAL";
+    //std::string type = "MEM";
+    std::string type = "GDAL";
 
     std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> centroidsVec;
 
@@ -675,22 +678,23 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
 
       if (!poly || !poly->isValid())
         continue;
-
+          
       //create raster crop from parcel
+      rInfo["URI"] = repName + "_parcel_" + te::common::Convert2String(parcelId) + ".tif";
       te::rst::RasterPtr parcelRaster(te::rst::CropRaster(*ndviRst.get(), *poly, rInfo, type));
 
       //create threshold raster
-      //rInfo["URI"] = repName + "_threshold.tif";
+      rInfo["URI"] = repName + "_threshold_" + te::common::Convert2String(parcelId) + ".tif";
       std::auto_ptr<te::rst::Raster> thresholdRaster = GenerateThresholdRaster(parcelRaster.get(), ndviBand, threshold, type, rInfo);
 
       //create erosion raster
-      //rInfo["URI"] = repName + "_erosion.tif";
+      rInfo["URI"] = repName + "_erosion_" + te::common::Convert2String(parcelId) + ".tif";
       std::auto_ptr<te::rst::Raster> erosionRaster = GenerateFilterRaster(thresholdRaster.get(), 0, dilation, te::rp::Filter::InputParameters::DilationFilterT, type, rInfo);
 
       thresholdRaster.reset(0);
 
       //create dilation raster
-      //rInfo["URI"] = repName + "_dilation.tif";
+      rInfo["URI"] = repName + "_dilation_" + te::common::Convert2String(parcelId) + ".tif";
       std::auto_ptr<te::rst::Raster> dilationRaster = GenerateFilterRaster(erosionRaster.get(), 0, erosion, te::rp::Filter::InputParameters::ErosionFilterT, type, rInfo);
 
       erosionRaster.reset(0);
@@ -704,7 +708,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
         if (idx != std::string::npos)
           repName = repName.substr(0, idx);
 
-        std::string rasterFileName = repName + ".tif";
+        std::string rasterFileName = repName + "_" + te::common::Convert2String(parcelId) +".tif";
 
         te::qt::plugins::tv5plugins::ExportRaster(dilationRaster.get(), rasterFileName);
       }
