@@ -40,6 +40,7 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDia
   m_ui->setupUi(this);
 
   m_ui->m_eraserToolButton->setIcon(QIcon::fromTheme("pointer-remove-selection"));
+  m_ui->m_trackClassifierToolButton->setIcon(QIcon::fromTheme("wand"));
 
   connect(m_ui->m_eraserToolButton, SIGNAL(toggled(bool)), this, SLOT(onEraserToolButtonClicked(bool)));
   connect(m_ui->m_trackClassifierToolButton, SIGNAL(toggled(bool)), this, SLOT(onTrackClassifierToolButtonClicked(bool)));
@@ -115,7 +116,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackClassifierT
   QVariant varLayerParcel = m_ui->m_layerParcelComboBox->itemData(m_ui->m_layerParcelComboBox->currentIndex(), Qt::UserRole);
   te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
 
-  QPixmap pxmap = QIcon::fromTheme("pointer-remove-selection").pixmap(QSize(16, 16));
+  QPixmap pxmap = QIcon::fromTheme("pointer-selection").pixmap(QSize(16, 16));
   QCursor cursor(pxmap, 0, 0);
 
   te::qt::plugins::tv5plugins::TrackClassifier* tool = new te::qt::plugins::tv5plugins::TrackClassifier(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel);
