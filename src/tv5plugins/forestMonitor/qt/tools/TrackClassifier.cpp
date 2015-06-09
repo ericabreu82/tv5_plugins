@@ -26,6 +26,8 @@ or (at your option) any later version.
 #include <terralib/geometry/Geometry.h>
 #include <terralib/geometry/GeometryProperty.h>
 #include <terralib/geometry/LineString.h>
+#include <terralib/geometry/MultiPoint.h>
+#include <terralib/geometry/Point.h>
 #include <terralib/geometry/Utils.h>
 #include <terralib/maptools/DataSetLayer.h>
 #include <terralib/maptools/MarkRendererManager.h>
@@ -46,6 +48,10 @@ or (at your option) any later version.
 #include <cassert>
 #include <memory>
 
+#define DISTANCE_BUFFER 1.5
+#define TOLERANCE_FACTOR 0.2
+#define ANGLE_TOL 20
+
 te::qt::plugins::tv5plugins::TrackClassifier::TrackClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, QObject* parent)
   : AbstractTool(display, parent),
   m_coordLayer(coordLayer),
@@ -53,12 +59,45 @@ te::qt::plugins::tv5plugins::TrackClassifier::TrackClassifier(te::qt::widgets::M
   m_objIdSet(0)
 {
   setCursor(cursor);
+
+  //create rtree
+  std::auto_ptr<const te::map::LayerSchema> schema(m_coordLayer->getSchema());
+  std::auto_ptr<te::da::DataSet> ds(m_coordLayer->getData());
+
+  //geom property info
+  te::gm::GeometryProperty* gmProp = te::da::GetFirstGeomProperty(schema.get());
+
+  int geomIdx = te::da::GetPropertyPos(schema.get(), gmProp->getName());
+
+  //id info
+  te::da::PrimaryKey* pk = schema->getPrimaryKey();
+  
+  int idIdx = te::da::GetPropertyPos(schema.get(), pk->getProperties()[0]->getName());
+  
+  ds->moveBeforeFirst();
+
+  while (ds->moveNext())
+  {
+    std::string strId = ds->getAsString(idIdx);
+
+    int id = atoi(strId.c_str());
+
+    te::gm::Geometry* g = ds->getGeometry(geomIdx).release();
+    const te::gm::Envelope* box = g->getMBR();
+
+    m_centroidRtree.insert(*box, id);
+
+    m_centroidGeomMap.insert(std::map<int, te::gm::Geometry*>::value_type(id, g));
+  }
 }
 
 te::qt::plugins::tv5plugins::TrackClassifier::~TrackClassifier()
 {
   QPixmap* draft = m_display->getDraftPixmap();
   draft->fill(Qt::transparent);
+  
+  m_centroidRtree.clear();
+  te::common::FreeContents(m_centroidGeomMap);
 
   delete m_objIdSet;
 }
@@ -217,66 +256,30 @@ void te::qt::plugins::tv5plugins::TrackClassifier::drawSelecteds()
   canvas.setWindow(displayExtent.m_llx, displayExtent.m_lly, displayExtent.m_urx, displayExtent.m_ury);
   canvas.setRenderHint(QPainter::Antialiasing, true);
 
-  switch (gp->getGeometryType())
-  {
-    case te::gm::PolygonType:
-    case te::gm::PolygonZType:
-    case te::gm::PolygonMType:
-    case te::gm::PolygonZMType:
-    case te::gm::MultiPolygonType:
-    case te::gm::MultiPolygonZType:
-    case te::gm::MultiPolygonMType:
-    case te::gm::MultiPolygonZMType:
-    {
-      canvas.setPolygonContourWidth(2);
-      canvas.setPolygonContourColor(te::color::RGBAColor(255, 0, 0, 128));
-      canvas.setPolygonFillColor(te::color::RGBAColor(255, 255, 255, 128));
-    }
-    break;
+  //configure for polygons
+  canvas.setPolygonContourWidth(1);
+  canvas.setPolygonContourColor(te::color::RGBAColor(0, 0, 0, 128));
+  canvas.setPolygonFillColor(te::color::RGBAColor(255, 255, 255, TE_TRANSPARENT));
+   
+  //configure for lines
+  canvas.setLineColor(te::color::RGBAColor(255, 0, 0, 128));
+  canvas.setLineWidth(6);
+   
+  //configure for points
+  std::size_t size = 24;
 
-    case te::gm::LineStringType:
-    case te::gm::LineStringZType:
-    case te::gm::LineStringMType:
-    case te::gm::LineStringZMType:
-    case te::gm::MultiLineStringType:
-    case te::gm::MultiLineStringZType:
-    case te::gm::MultiLineStringMType:
-    case te::gm::MultiLineStringZMType:
-    {
-      canvas.setLineColor(te::color::RGBAColor(255, 0, 0, 128));
-      canvas.setLineWidth(6);
-    }
-    break;
+  te::se::Stroke* stroke = te::se::CreateStroke("#FF0000", "2", "0.5");
+  te::se::Fill* fill = te::se::CreateFill("#FFFFFF", "0.5");
+  te::se::Mark* mark = te::se::CreateMark("square", stroke, fill);
 
-    case te::gm::PointType:
-    case te::gm::PointZType:
-    case te::gm::PointMType:
-    case te::gm::PointZMType:
-    case te::gm::MultiPointType:
-    case te::gm::MultiPointZType:
-    case te::gm::MultiPointMType:
-    case te::gm::MultiPointZMType:
-    {
-      std::size_t size = 24;
+  te::color::RGBAColor** rgba = te::map::MarkRendererManager::getInstance().render(mark, size);
 
-      te::se::Stroke* stroke = te::se::CreateStroke("#FF0000", "2", "0.5");
-      te::se::Fill* fill = te::se::CreateFill("#FFFFFF", "0.5");
-      te::se::Mark* mark = te::se::CreateMark("square", stroke, fill);
+  canvas.setPointColor(te::color::RGBAColor(0, 0, 0, TE_TRANSPARENT));
+  canvas.setPointPattern(rgba, size, size);
 
-      te::color::RGBAColor** rgba = te::map::MarkRendererManager::getInstance().render(mark, size);
-
-      canvas.setPointColor(te::color::RGBAColor(0, 0, 0, TE_TRANSPARENT));
-      canvas.setPointPattern(rgba, size, size);
-
-      te::common::Free(rgba, size);
-      delete mark;
-    }
-    break;
-
-    default:
-      return;
-  }
-
+  te::common::Free(rgba, size);
+  delete mark;
+  
   try
   {
     // Gets the dataset
@@ -297,7 +300,8 @@ void te::qt::plugins::tv5plugins::TrackClassifier::drawSelecteds()
     {
       te::gm::Geometry* buffer = createBuffer(dataset, m_coordLayer->getSRID(), gp->getName());
 
-      canvas.draw(buffer);
+      if (buffer->isValid())
+        canvas.draw(buffer);
 
       delete buffer;
     }
@@ -316,39 +320,148 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
 
   std::auto_ptr<te::gm::Geometry> rootGeom(dataset->getGeometry(gpName));
 
-  //get sample info
-  double distance, angle;
+  rootGeom->setSRID(srid);
 
-  getTrackInfo(dataset, gpName, distance, angle);
+  //get sample info
+  double distance, angle, invertedAngle;
+
+  getTrackInfo(dataset, gpName, distance, angle, invertedAngle);
 
   //get parcel geom
   std::auto_ptr<te::gm::Geometry> parcelGeom = getParcelGeeom(rootGeom.get());
+
+  parcelGeom->setSRID(srid);
 
   //create track
   std::list<te::gm::Point*> track;
 
   bool insideParcel = parcelGeom->covers(rootGeom.get());
 
+  te::gm::Point* rootPoint = 0;
+  
+  if (rootGeom->getGeomTypeId() == te::gm::MultiPointType)
+  {
+    te::gm::MultiPoint* mPoint = dynamic_cast<te::gm::MultiPoint*>(rootGeom.get());
+    rootPoint = dynamic_cast<te::gm::Point*>(mPoint->getGeometryN(0));
+  }
+  else if (rootGeom->getGeomTypeId() == te::gm::PointType)
+  {
+    rootPoint = dynamic_cast<te::gm::Point*>(rootGeom.get());
+  }
+
+  rootPoint->setSRID(srid);
+
+  track.push_back(new te::gm::Point(*rootPoint));
+
+  bool invert = false;
+
   while (insideParcel)
   {
+    te::gm::Point* guestPoint = createGuessPoint(rootPoint, distance, angle, srid);
+    
+    //create envelope to find if guest point exist
+    te::gm::Envelope ext(guestPoint->getX(), guestPoint->getY(), guestPoint->getX(), guestPoint->getY());
 
+    ext.m_llx -= distance;
+    ext.m_lly -= distance;
+    ext.m_urx += distance;
+    ext.m_ury += distance;
+
+    //check on tree
+    std::vector<int> resultsTree;
+
+    m_centroidRtree.search(ext, resultsTree);
+
+    if (resultsTree.empty())
+    {
+      //dead point
+      rootPoint = guestPoint;
+
+      insideParcel = parcelGeom->covers(rootPoint);
+
+      if (insideParcel)
+        track.push_back(new te::gm::Point(*rootPoint));
+    }
+    else
+    {
+      //live point
+      te::gm::Point* pCandidate = 0;
+
+      bool found = false;
+
+      for (std::size_t t = 0; t < resultsTree.size(); ++t)
+      {
+        std::map<int, te::gm::Geometry*>::iterator it = m_centroidGeomMap.find(resultsTree[t]);
+
+        if (rootGeom->getGeomTypeId() == te::gm::MultiPointType)
+        {
+          te::gm::MultiPoint* mPoint = dynamic_cast<te::gm::MultiPoint*>(it->second);
+          pCandidate = dynamic_cast<te::gm::Point*>(mPoint->getGeometryN(0));
+        }
+        else if (rootGeom->getGeomTypeId() == te::gm::PointType)
+        {
+          pCandidate = dynamic_cast<te::gm::Point*>(it->second);
+        }
+
+        pCandidate->setSRID(srid);
+
+        if (rootPoint->getX() != pCandidate->getX() || rootPoint->getY() != pCandidate->getY())
+        {
+          if (centroidsSameTrack(rootPoint, pCandidate, angle))
+          {
+            rootPoint = pCandidate;
+            found = true;
+            break;
+          }
+        }
+      }
+
+      if (!found)
+      {
+        rootPoint = guestPoint;
+      }
+
+
+      insideParcel = parcelGeom->covers(rootPoint);
+
+      if (insideParcel)
+      {
+        track.push_back(new te::gm::Point(*rootPoint));
+      }
+      else
+      {
+        if (!invert)
+        {
+          invert = true;
+          insideParcel = true;
+          angle = invertedAngle;
+          rootPoint = *track.begin();
+        }
+      }
+    }
   }
 
   //create buffer
   te::gm::LineString* line = new te::gm::LineString(track.size(), te::gm::LineStringType, srid);
 
-  for (std::size_t t = 0; t < track.size(); ++t)
+  int count = 0;
+  std::list<te::gm::Point*>::iterator it = track.begin();
+  while (it != track.end())
   {
-    line->setPoint(t, track[t]->getX(), track[t]->getY());
+    line->setPoint(count, (*it)->getX(), (*it)->getY());
+
+    ++count;
+    ++it;
   }
 
-  return line->buffer(DISTANCE_BUFFER);
+  return line->buffer(DISTANCE_BUFFER, 16);
 }
 
-void te::qt::plugins::tv5plugins::TrackClassifier::getTrackInfo(std::auto_ptr<te::da::DataSet> dataset, std::string gpName, double& distance, double& angle)
+void te::qt::plugins::tv5plugins::TrackClassifier::getTrackInfo(std::auto_ptr<te::da::DataSet> dataset, std::string gpName, double& distance, double& angle, double& invertedAngle)
 {
   distance = 0.;
   angle = 0.;
+  invertedAngle = 0.;
   dataset->moveFirst();
 
   std::auto_ptr<te::gm::Geometry> gFirst(dataset->getGeometry(gpName));
@@ -358,19 +471,21 @@ void te::qt::plugins::tv5plugins::TrackClassifier::getTrackInfo(std::auto_ptr<te
     std::auto_ptr<te::gm::Geometry> gNext(dataset->getGeometry(gpName));
 
     distance += gFirst->distance(gNext.get());
-    angle += getAngle(gFirst.get(), gNext.get());
+    angle += getAngle(gNext.get(), gFirst.get());
+    invertedAngle += getAngle(gFirst.get(), gNext.get());
 
     gFirst = gNext;
   }
 
   distance = distance / (dataset->size() - 1);
   angle = angle / (dataset->size() - 1);
+  invertedAngle = invertedAngle / (dataset->size() - 1);
 }
 
 std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackClassifier::getParcelGeeom(te::gm::Geometry* root)
 {
   if (!m_parcelLayer.get())
-    return;
+    throw;
 
   // Bulding the query box
   te::gm::Envelope envelope(*root->getMBR());
@@ -381,13 +496,13 @@ std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackClassifier::ge
     reprojectedEnvelope.transform(m_display->getSRID(), m_parcelLayer->getSRID());
 
   if (!reprojectedEnvelope.intersects(m_parcelLayer->getExtent()))
-    return;
+    throw;
 
   // Gets the layer schema
   std::auto_ptr<const te::map::LayerSchema> schema(m_parcelLayer->getSchema());
 
   if (!schema->hasGeom())
-    return;
+    throw;
 
   te::gm::GeometryProperty* gp = te::da::GetFirstGeomProperty(schema.get());
 
@@ -405,8 +520,22 @@ std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackClassifier::ge
 
 double te::qt::plugins::tv5plugins::TrackClassifier::getAngle(te::gm::Geometry* first, te::gm::Geometry* last)
 {
-  te::gm::Point* lastPoint = dynamic_cast<te::gm::Point*>(last);
-  te::gm::Point* firstPoint = dynamic_cast<te::gm::Point*>(first);
+  te::gm::Point* lastPoint = 0;
+  te::gm::Point* firstPoint = 0;
+
+  if (first->getGeomTypeId() == te::gm::MultiPointType)
+  {
+    te::gm::MultiPoint* mlastPoint = dynamic_cast<te::gm::MultiPoint*>(last);
+    lastPoint = dynamic_cast<te::gm::Point*>(mlastPoint->getGeometryN(0));
+
+    te::gm::MultiPoint* mfirstPoint = dynamic_cast<te::gm::MultiPoint*>(first);
+    firstPoint = dynamic_cast<te::gm::Point*>(mfirstPoint->getGeometryN(0));
+  }
+  else if (first->getGeomTypeId() == te::gm::PointType)
+  {
+    lastPoint = dynamic_cast<te::gm::Point*>(last);
+    firstPoint = dynamic_cast<te::gm::Point*>(first);
+  }
 
   double dx = lastPoint->getX() - firstPoint->getX();
   double ax = fabs(dx);
@@ -428,6 +557,74 @@ double te::qt::plugins::tv5plugins::TrackClassifier::getAngle(te::gm::Geometry* 
   double angle = t * 90.0;
 
   return angle;
+}
+
+bool te::qt::plugins::tv5plugins::TrackClassifier::centroidsSameTrack(te::gm::Point* first, te::gm::Point* last, double parcelAngle)
+{
+  assert(first && last);
+
+  double angle = getAngle(first, last);
+
+  //check tolerance
+  double absDiff = abs(parcelAngle - angle);
+
+  if (absDiff > ANGLE_TOL)
+    return false;
+  else
+    return true;
+}
+
+te::gm::Point* te::qt::plugins::tv5plugins::TrackClassifier::createGuessPoint(te::gm::Point* p, double distance, double angle, int srid)
+{
+  te::gm::Coord2D c(p->getX(), p->getY());
+
+  te::gm::LineString* lIn = new te::gm::LineString(2, te::gm::LineStringType, srid);
+  lIn->setPoint(0, p->getX(), p->getY());
+  lIn->setPoint(1, p->getX() + distance, p->getY());
+
+  te::gm::LineString* lOut = new te::gm::LineString(2, te::gm::LineStringType, srid);
+
+  rotate(c, lIn, angle, lOut);
+
+  return new te::gm::Point(lOut->getPointN(1)->getX(), lOut->getPointN(1)->getY(), srid);
+}
+
+bool te::qt::plugins::tv5plugins::TrackClassifier::rotate(te::gm::Coord2D pr, te::gm::LineString* l, double angle, te::gm::LineString* lOut)
+{
+  double alfa;
+  double dx, dy;
+  double x, y;
+  double xr, yr;
+
+  try
+  {
+    if (l->size() < 2)
+      return (false);
+
+    alfa = (4.*atan(1.)*angle) / 180.;//transform Degree to Radius
+
+    dx = pr.getX();
+    dy = pr.getY();
+
+    for (std::size_t count = 0; count < l->size(); count++)
+    {
+      std::auto_ptr<te::gm::Point> curPoint(l->getPointN(count));
+
+      x = curPoint->getX() - dx;
+      y = curPoint->getY() - dy;
+
+      xr = x * cos(alfa) - y * sin(alfa);
+      yr = x * sin(alfa) + y * cos(alfa);
+
+      lOut->setPoint(count, xr + dx, yr + dy);
+    }
+  }
+  catch (...)
+  {
+    return false;
+  }
+
+  return true;
 }
 
 

@@ -26,6 +26,7 @@
 // TerraLib
 #include "../core/ForestMonitorToolBar.h"
 #include "tools/Eraser.h"
+#include "tools/TrackClassifier.h"
 #include "ForestMonitorToolBarDialog.h"
 #include "ui_ForestMonitorToolBarDialogForm.h"
 
@@ -41,6 +42,7 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDia
   m_ui->m_eraserToolButton->setIcon(QIcon::fromTheme("pointer-remove-selection"));
 
   connect(m_ui->m_eraserToolButton, SIGNAL(toggled(bool)), this, SLOT(onEraserToolButtonClicked(bool)));
+  connect(m_ui->m_trackClassifierToolButton, SIGNAL(toggled(bool)), this, SLOT(onTrackClassifierToolButtonClicked(bool)));
 }
 
 te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::~ForestMonitorToolBarDialog()
@@ -50,7 +52,8 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::~ForestMonitorToolBarDi
 void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::setLayerList(std::list<te::map::AbstractLayerPtr> list)
 {
   //clear combos
-  m_ui->m_layerComboBox->clear();
+  m_ui->m_layerParcelComboBox->clear();
+  m_ui->m_layerPointsComboBox->clear();
 
   //fill combos
   std::list<te::map::AbstractLayerPtr>::iterator it = list.begin();
@@ -65,7 +68,8 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::setLayerList(std::
 
       if (dsType->hasGeom())
       {
-        m_ui->m_layerComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
+        m_ui->m_layerParcelComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
+        m_ui->m_layerPointsComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
       }
     }
 
@@ -86,7 +90,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onEraserToolButton
   if (!m_appDisplay)
     return;
 
-  QVariant varLayer = m_ui->m_layerComboBox->itemData(m_ui->m_layerComboBox->currentIndex(), Qt::UserRole);
+  QVariant varLayer = m_ui->m_layerPointsComboBox->itemData(m_ui->m_layerPointsComboBox->currentIndex(), Qt::UserRole);
 
   te::map::AbstractLayerPtr layer = varLayer.value<te::map::AbstractLayerPtr>();
 
@@ -94,5 +98,26 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onEraserToolButton
   QCursor cursor(pxmap, 0, 0);
 
   te::qt::plugins::tv5plugins::Eraser* tool = new te::qt::plugins::tv5plugins::Eraser(m_appDisplay->getDisplay(), cursor, layer);
+  m_appDisplay->setCurrentTool(tool);
+}
+
+void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackClassifierToolButtonClicked(bool flag)
+{
+  if (!flag)
+    return;
+
+  if (!m_appDisplay)
+    return;
+
+  QVariant varLayerPoint = m_ui->m_layerPointsComboBox->itemData(m_ui->m_layerPointsComboBox->currentIndex(), Qt::UserRole);
+  te::map::AbstractLayerPtr layerPoints = varLayerPoint.value<te::map::AbstractLayerPtr>();
+
+  QVariant varLayerParcel = m_ui->m_layerParcelComboBox->itemData(m_ui->m_layerParcelComboBox->currentIndex(), Qt::UserRole);
+  te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
+
+  QPixmap pxmap = QIcon::fromTheme("pointer-remove-selection").pixmap(QSize(16, 16));
+  QCursor cursor(pxmap, 0, 0);
+
+  te::qt::plugins::tv5plugins::TrackClassifier* tool = new te::qt::plugins::tv5plugins::TrackClassifier(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel);
   m_appDisplay->setCurrentTool(tool);
 }

@@ -56,6 +56,8 @@ te::qt::plugins::tv5plugins::Eraser::Eraser(te::qt::widgets::MapDisplay* display
     m_objIdSet(0)
 {
   setCursor(cursor);
+
+  display->setFocus();
 }
 
 te::qt::plugins::tv5plugins::Eraser::~Eraser()
@@ -75,9 +77,28 @@ bool te::qt::plugins::tv5plugins::Eraser::mouseReleaseEvent(QMouseEvent* e)
     return true;
   }
 
-  if (e->button() == Qt::RightButton)
+  return false;
+}
+
+bool te::qt::plugins::tv5plugins::Eraser::eventFilter(QObject* watched, QEvent* e)
+{
+  if (e->type() == QEvent::MouseButtonRelease)
   {
-    removeObjects();
+    QMouseEvent* event = static_cast<QMouseEvent*>(e);
+
+    if (event->button() == Qt::LeftButton)
+    {
+      selectObjects(event);
+
+      return true;
+    }
+  }
+  else if (e->type() == QEvent::KeyPress)
+  {
+    QKeyEvent* event = static_cast<QKeyEvent*>(e);
+
+    if (event->key() == Qt::Key_Delete)
+      removeObjects();
 
     return true;
   }

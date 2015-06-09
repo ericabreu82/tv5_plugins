@@ -101,11 +101,17 @@ namespace te
 
           te::gm::Geometry* createBuffer(std::auto_ptr<te::da::DataSet> dataset, int srid, std::string gpName);
 
-          void getTrackInfo(std::auto_ptr<te::da::DataSet> dataset, std::string gpName, double& distance, double& angle);
+          void getTrackInfo(std::auto_ptr<te::da::DataSet> dataset, std::string gpName, double& distance, double& angle, double& invertedAngle);
 
           std::auto_ptr<te::gm::Geometry> getParcelGeeom(te::gm::Geometry* root);
 
           double getAngle(te::gm::Geometry* first, te::gm::Geometry* last);
+
+          bool centroidsSameTrack(te::gm::Point* first, te::gm::Point* last, double parcelAngle);
+
+          te::gm::Point* createGuessPoint(te::gm::Point* p, double distance, double angle, int srid);
+
+          bool rotate(te::gm::Coord2D pr, te::gm::LineString* l, double angle, te::gm::LineString* lOut);
 
         private:
 
@@ -113,6 +119,9 @@ namespace te
           te::map::AbstractLayerPtr m_parcelLayer;        //!<The layer with geometry restriction.
 
           te::da::ObjectIdSet* m_objIdSet;
+
+          te::sam::rtree::Index<int> m_centroidRtree;
+          std::map<int, te::gm::Geometry*> m_centroidGeomMap;
         };
 
       } // end namespace tv5plugins

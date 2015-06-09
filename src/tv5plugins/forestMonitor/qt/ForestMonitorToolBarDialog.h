@@ -72,6 +72,8 @@ namespace te
 
             void onEraserToolButtonClicked(bool flag);
 
+            void onTrackClassifierToolButtonClicked(bool flag);
+
           private:
 
             std::auto_ptr<Ui::ForestMonitorToolBarDialogForm> m_ui;

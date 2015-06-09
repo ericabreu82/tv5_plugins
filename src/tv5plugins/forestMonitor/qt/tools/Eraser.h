@@ -92,6 +92,8 @@ namespace te
 
           bool mouseReleaseEvent(QMouseEvent* e);
 
+          bool eventFilter(QObject* watched, QEvent* e);
+
           //@}
 
           public slots:
