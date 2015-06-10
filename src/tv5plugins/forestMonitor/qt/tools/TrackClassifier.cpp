@@ -56,7 +56,8 @@ te::qt::plugins::tv5plugins::TrackClassifier::TrackClassifier(te::qt::widgets::M
   : AbstractTool(display, parent),
   m_coordLayer(coordLayer),
   m_parcelLayer(parcelLayer),
-  m_objIdSet(0)
+  m_objIdSet(0),
+  m_buffer(0)
 {
   setCursor(cursor);
 
@@ -100,23 +101,29 @@ te::qt::plugins::tv5plugins::TrackClassifier::~TrackClassifier()
   te::common::FreeContents(m_centroidGeomMap);
 
   delete m_objIdSet;
+
+  delete m_buffer;
 }
 
-bool te::qt::plugins::tv5plugins::TrackClassifier::mouseReleaseEvent(QMouseEvent* e)
+bool te::qt::plugins::tv5plugins::TrackClassifier::eventFilter(QObject* watched, QEvent* e)
 {
-  if (e->button() == Qt::LeftButton)
+  if (e->type() == QEvent::MouseButtonRelease)
   {
-    selectObjects(e);
+    QMouseEvent* event = static_cast<QMouseEvent*>(e);
 
-    return true;
+    if (event->button() == Qt::LeftButton)
+    {
+      selectObjects(event);
+
+      return true;
+    }
   }
-
-  if (e->button() == Qt::RightButton)
+  else if (e->type() == QEvent::KeyPress)
   {
-    if (m_objIdSet->size() < 3)
-      return false;
+    QKeyEvent* event = static_cast<QKeyEvent*>(e);
 
-    classifyObjects();
+    if (event->key() == Qt::Key_Delete && m_objIdSet->size() >= 3)
+      classifyObjects();
 
     return true;
   }
@@ -219,7 +226,12 @@ void te::qt::plugins::tv5plugins::TrackClassifier::classifyObjects()
 
   try
   {
+    //create dataset use buffer geom, then create objidset
+    //create objidset with m_track
 
+    //call symdif
+
+    //remove objidset result
   }
   catch (std::exception& e)
   {
@@ -298,12 +310,11 @@ void te::qt::plugins::tv5plugins::TrackClassifier::drawSelecteds()
 
     if (m_objIdSet->size() >= 3)
     {
-      te::gm::Geometry* buffer = createBuffer(dataset, m_coordLayer->getSRID(), gp->getName());
+      delete m_buffer;
+      m_buffer = createBuffer(dataset, m_coordLayer->getSRID(), gp->getName());
 
-      if (buffer->isValid())
-        canvas.draw(buffer);
-
-      delete buffer;
+      if (m_buffer->isValid())
+        canvas.draw(m_buffer);
     }
   }
   catch (std::exception& e)
@@ -334,6 +345,7 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
 
   //create track
   std::list<te::gm::Point*> track;
+  m_track.clear();
 
   bool insideParcel = parcelGeom->covers(rootGeom.get());
 
@@ -352,6 +364,7 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
   rootPoint->setSRID(srid);
 
   track.push_back(new te::gm::Point(*rootPoint));
+  m_track.push_back(rootPoint);
 
   bool invert = false;
 
@@ -411,6 +424,9 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
           {
             rootPoint = pCandidate;
             found = true;
+
+            m_track.push_back(rootPoint);
+
             break;
           }
         }
@@ -420,7 +436,6 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
       {
         rootPoint = guestPoint;
       }
-
 
       insideParcel = parcelGeom->covers(rootPoint);
 
@@ -442,7 +457,7 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
   }
 
   //create buffer
-  te::gm::LineString* line = new te::gm::LineString(track.size(), te::gm::LineStringType, srid);
+  std::auto_ptr<te::gm::LineString> line(new te::gm::LineString(track.size(), te::gm::LineStringType, srid));
 
   int count = 0;
   std::list<te::gm::Point*>::iterator it = track.begin();

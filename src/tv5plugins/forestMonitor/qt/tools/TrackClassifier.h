@@ -87,7 +87,7 @@ namespace te
            */
           //@{
 
-          bool mouseReleaseEvent(QMouseEvent* e);
+          bool eventFilter(QObject* watched, QEvent* e);
 
           //@}
 
@@ -122,6 +122,9 @@ namespace te
 
           te::sam::rtree::Index<int> m_centroidRtree;
           std::map<int, te::gm::Geometry*> m_centroidGeomMap;
+
+          te::gm::Geometry* m_buffer;
+          std::list<te::gm::Point*> m_track;
         };
 
       } // end namespace tv5plugins

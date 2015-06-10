@@ -68,18 +68,6 @@ te::qt::plugins::tv5plugins::Eraser::~Eraser()
   delete m_objIdSet;
 }
 
-bool te::qt::plugins::tv5plugins::Eraser::mouseReleaseEvent(QMouseEvent* e)
-{
-  if (e->button() == Qt::LeftButton)
-  {
-    selectObjects(e);
-
-    return true;
-  }
-
-  return false;
-}
-
 bool te::qt::plugins::tv5plugins::Eraser::eventFilter(QObject* watched, QEvent* e)
 {
   if (e->type() == QEvent::MouseButtonRelease)
