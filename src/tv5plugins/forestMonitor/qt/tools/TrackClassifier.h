@@ -97,9 +97,11 @@ namespace te
 
           void classifyObjects();
 
+          void cancelOperation();
+
           void drawSelecteds();
 
-          te::gm::Geometry* createBuffer(std::auto_ptr<te::da::DataSet> dataset, int srid, std::string gpName);
+          te::gm::Geometry* createBuffer(std::auto_ptr<te::da::DataSet> dataset, int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track);
 
           void getTrackInfo(std::auto_ptr<te::da::DataSet> dataset, std::string gpName, double& distance, double& angle, double& invertedAngle);
 
@@ -113,18 +115,27 @@ namespace te
 
           bool rotate(te::gm::Coord2D pr, te::gm::LineString* l, double angle, te::gm::LineString* lOut);
 
+          te::da::ObjectIdSet* getBufferObjIdSet();
+
+          void createRTree();
+
         private:
 
           te::map::AbstractLayerPtr m_coordLayer;         //!<The layer that will be classified.
           te::map::AbstractLayerPtr m_parcelLayer;        //!<The layer with geometry restriction.
 
           te::da::ObjectIdSet* m_objIdSet;
+          
+          te::da::ObjectIdSet* m_objIdTrackSet;
 
           te::sam::rtree::Index<int> m_centroidRtree;
           std::map<int, te::gm::Geometry*> m_centroidGeomMap;
+          std::map<int, te::da::ObjectId*> m_centroidObjIdMap;
 
+          te::gm::Geometry* m_starter;
+          te::da::ObjectId* m_starterObjId;
           te::gm::Geometry* m_buffer;
-          std::list<te::gm::Point*> m_track;
+          te::da::ObjectIdSet* m_track;
         };
 
       } // end namespace tv5plugins
