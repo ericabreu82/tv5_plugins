@@ -44,12 +44,22 @@ namespace te
     {
       namespace tv5plugins
       {
+        enum ForetType
+        {
+          FOREST_UNKNOWN,
+          FOREST_LIVE,
+          FOREST_DEAD
+        };
+
         struct CentroidInfo
         {
           te::gm::Point* m_point;
           int m_parentId;
           double m_area;
+          te::qt::plugins::tv5plugins::ForetType type;
         };
+
+
 
         std::auto_ptr<te::rst::Raster> GenerateFilterRaster(te::rst::Raster* raster, int band, int nIter, te::rp::Filter::InputParameters::FilterType fType,
                                                             std::string type, std::map<std::string, std::string> rinfo);
@@ -67,6 +77,8 @@ namespace te
         void AssociateObjects(te::map::AbstractLayer* layer, std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& points, int srid);
 
         void ExportVector(std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& ciVec, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid);
+
+        void ExportPolyVector(std::vector<te::gm::Geometry*>& geomVec, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid);
 
       } // end namespace thirdParty
     }   // end namespace plugins

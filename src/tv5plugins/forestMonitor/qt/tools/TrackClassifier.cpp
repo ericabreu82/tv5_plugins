@@ -23,6 +23,7 @@ or (at your option) any later version.
 #include <terralib/dataaccess/dataset/DataSet.h>
 #include <terralib/dataaccess/dataset/DataSetType.h>
 #include <terralib/dataaccess/utils/Utils.h>
+#include <terralib/datatype/StringProperty.h>
 #include <terralib/geometry/Geometry.h>
 #include <terralib/geometry/GeometryProperty.h>
 #include <terralib/geometry/LineString.h>
@@ -31,6 +32,7 @@ or (at your option) any later version.
 #include <terralib/geometry/Utils.h>
 #include <terralib/maptools/DataSetLayer.h>
 #include <terralib/maptools/MarkRendererManager.h>
+#include <terralib/memory/DataSetItem.h>
 #include <terralib/se/Fill.h>
 #include <terralib/se/Stroke.h>
 #include <terralib/se/Mark.h>
@@ -50,40 +52,50 @@ or (at your option) any later version.
 #include <memory>
 
 #define DISTANCE_BUFFER 1.5
-#define TOLERANCE_FACTOR 0.2
+#define TOLERANCE_FACTOR 0.5
 #define ANGLE_TOL 20
 
-te::qt::plugins::tv5plugins::TrackClassifier::TrackClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, QObject* parent)
+te::qt::plugins::tv5plugins::TrackClassifier::TrackClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr polyLayer, QObject* parent)
   : AbstractTool(display, parent),
   m_coordLayer(coordLayer),
   m_parcelLayer(parcelLayer),
-  m_objIdSet(0),
+  m_polyLayer(polyLayer),
   m_buffer(0),
   m_track(0),
-  m_starter(0),
-  m_starterObjId(0)
+  m_point0(0),
+  m_objId0(0),
+  m_point1(0),
+  m_objId1(0),
+  m_point2(0),
+  m_objId2(0),
+  m_starterId(0)
 {
   setCursor(cursor);
   
   display->setFocus();
   
   createRTree();
+
+  getStartIdValue();
 }
 
 te::qt::plugins::tv5plugins::TrackClassifier::~TrackClassifier()
 {
   QPixmap* draft = m_display->getDraftPixmap();
   draft->fill(Qt::transparent);
+
+  m_polyRtree.clear();
+  te::common::FreeContents(m_polyGeomMap);
   
   m_centroidRtree.clear();
   te::common::FreeContents(m_centroidGeomMap);
   te::common::FreeContents(m_centroidObjIdMap);
 
-  delete m_objIdSet;
-
   delete m_buffer;
 
-  delete m_starter;
+  delete m_point0;
+  delete m_point1;
+  delete m_point2;
 }
 
 bool te::qt::plugins::tv5plugins::TrackClassifier::eventFilter(QObject* watched, QEvent* e)
@@ -103,7 +115,7 @@ bool te::qt::plugins::tv5plugins::TrackClassifier::eventFilter(QObject* watched,
   {
     QKeyEvent* event = static_cast<QKeyEvent*>(e);
 
-    if (event->key() == Qt::Key_Delete && m_objIdSet->size() >= 3)
+    if (event->key() == Qt::Key_Delete && m_point2)
       classifyObjects();
 
     if (event->key() == Qt::Key_Escape)
@@ -160,10 +172,7 @@ void te::qt::plugins::tv5plugins::TrackClassifier::selectObjects(QMouseEvent* e)
     std::auto_ptr<te::da::DataSet> dataset = m_coordLayer->getData(gp->getName(), &reprojectedEnvelope, te::gm::INTERSECTS);
     assert(dataset.get());
 
-    // Let's generate the oids
-    te::da::GetEmptyOIDSet(schema.get(), oids);
-    assert(oids);
-
+    // Let's generate the oid
     std::vector<std::string> pnames;
     te::da::GetOIDPropertyNames(schema.get(), pnames);
 
@@ -180,14 +189,26 @@ void te::qt::plugins::tv5plugins::TrackClassifier::selectObjects(QMouseEvent* e)
       if (!g->intersects(geometryFromEnvelope.get()))
         continue;
 
-      if (!m_starter)
+      if (!m_point0)
       {
-        m_starter = dynamic_cast<te::gm::Geometry*>(g->clone());
-        m_starterObjId = te::da::GenerateOID(dataset.get(), pnames);
+        m_point0 = getPoint(dynamic_cast<te::gm::Geometry*>(g->clone()));
+        m_objId0 = te::da::GenerateOID(dataset.get(), pnames);
+        break;
       }
 
-      // Feature found
-      oids->add(te::da::GenerateOID(dataset.get(), pnames));
+      if (!m_point1)
+      {
+        m_point1 = getPoint(dynamic_cast<te::gm::Geometry*>(g->clone()));
+        m_objId1 = te::da::GenerateOID(dataset.get(), pnames);
+        break;
+      }
+
+      if (!m_point2)
+      {
+        m_point2 = getPoint(dynamic_cast<te::gm::Geometry*>(g->clone()));
+        m_objId2 = te::da::GenerateOID(dataset.get(), pnames);
+        break;
+      }
     }
   }
   catch (std::exception& e)
@@ -195,13 +216,6 @@ void te::qt::plugins::tv5plugins::TrackClassifier::selectObjects(QMouseEvent* e)
     QMessageBox::critical(m_display, tr("Error"), QString(tr("Error erasing geometry. Details:") + " %1.").arg(e.what()));
     return;
   }
-
-  if (!m_objIdSet)
-  {
-    te::da::GetEmptyOIDSet(schema.get(), m_objIdSet);
-  }
-
-  m_objIdSet->symDifference(oids);
 
   drawSelecteds();
 
@@ -221,14 +235,38 @@ void te::qt::plugins::tv5plugins::TrackClassifier::classifyObjects()
 
   try
   {
-    //create dataset use buffer geom, then create objidset
-    te::da::ObjectIdSet* buffer = getBufferObjIdSet();
+    //create dataset type
+    std::auto_ptr<te::da::DataSetType> dsType = m_coordLayer->getSchema();
 
-    //call symdif
-    buffer->symDifference(m_track);
+    //create dataset type
+    std::auto_ptr<te::da::DataSetType> dataSetType(new te::da::DataSetType(dsType->getName()));
 
-    //remove objidset result
+    //create id property
+    te::dt::SimpleProperty* idProperty = new te::dt::SimpleProperty("id", te::dt::INT32_TYPE);
+    dataSetType->add(idProperty);
 
+    //create origin id property
+    te::dt::SimpleProperty* originIdProperty = new te::dt::SimpleProperty("originId", te::dt::INT32_TYPE);
+    dataSetType->add(originIdProperty);
+
+    //create area property
+    te::dt::SimpleProperty* areaProperty = new te::dt::SimpleProperty("area", te::dt::DOUBLE_TYPE);
+    dataSetType->add(areaProperty);
+
+    //create forest type
+    te::dt::StringProperty* typeProperty = new te::dt::StringProperty("type");
+    dataSetType->add(typeProperty);
+
+    //create geometry property
+    te::gm::GeometryProperty* geomProperty = new te::gm::GeometryProperty("geom", m_coordLayer->getSRID(), te::gm::PointType);
+    dataSetType->add(geomProperty);
+
+    te::mem::DataSet* liveDS = 0;
+    te::mem::DataSet* intruderDS = 0;
+
+    getClassDataSets(dsType.get(), liveDS, intruderDS);
+
+    //class
     te::map::DataSetLayer* dsLayer = dynamic_cast<te::map::DataSetLayer*>(m_coordLayer.get());
 
     if (dsLayer)
@@ -237,9 +275,50 @@ void te::qt::plugins::tv5plugins::TrackClassifier::classifyObjects()
 
       te::da::DataSourcePtr dataSource = te::da::GetDataSource(dsLayer->getDataSourceId());
 
-      dataSource->remove(schema->getName(), buffer);
+      //update live dataset
+      std::vector<size_t> ids;
+      ids.push_back(0);
 
-      delete buffer;
+      if (liveDS)
+      {
+        std::vector< std::set<int> > properties;
+        std::size_t dsSize = liveDS->size();
+
+        for (std::size_t t = 0; t < dsSize; ++t)
+        {
+          std::set<int> setPos;
+          setPos.insert(4);
+
+          properties.push_back(setPos);
+        }
+
+        dataSource->update(schema->getName(), liveDS, properties, ids);
+      }
+
+      //update intruder dataset
+      if (intruderDS)
+      {
+        std::vector< std::set<int> > properties;
+        std::size_t dsSize = intruderDS->size();
+
+        for (std::size_t t = 0; t < dsSize; ++t)
+        {
+          std::set<int> setPos;
+          setPos.insert(4);
+
+          properties.push_back(setPos);
+        }
+
+        dataSource->update(schema->getName(), intruderDS, properties, ids);
+      }
+
+      //add dead dataset
+      if (m_dataSet.get())
+      {
+        std::map<std::string, std::string> options;
+
+        dataSource->add(schema->getName(), m_dataSet.get(), options);
+      }
     }
   }
   catch (std::exception& e)
@@ -252,14 +331,24 @@ void te::qt::plugins::tv5plugins::TrackClassifier::classifyObjects()
 
   QApplication::restoreOverrideCursor();
 
-  m_objIdSet->clear();
+  delete m_point0;
+  m_point0 = 0;
+  delete m_objId0;
+  m_objId0 = 0;
 
-  delete m_starter;
-  m_starter = 0;
+  delete m_point1;
+  m_point1 = 0;
+  delete m_objId1;
+  m_objId1 = 0;
 
-  delete m_starterObjId;
+  delete m_point2;
+  m_point2 = 0;
+  delete m_objId2;
+  m_objId2 = 0;
 
   createRTree();
+
+  m_dataSet.reset();
 
   //repaint the layer
   m_display->refresh();
@@ -271,12 +360,22 @@ void te::qt::plugins::tv5plugins::TrackClassifier::cancelOperation()
   QPixmap* draft = m_display->getDraftPixmap();
   draft->fill(Qt::transparent);
 
-  m_objIdSet->clear();
+  delete m_point0;
+  m_point0 = 0;
+  delete m_objId0;
+  m_objId0 = 0;
 
-  delete m_starter;
-  m_starter = 0;
+  delete m_point1;
+  m_point1 = 0;
+  delete m_objId1;
+  m_objId1 = 0;
 
-  delete m_starterObjId;
+  delete m_point2;
+  m_point2 = 0;
+  delete m_objId2;
+  m_objId2 = 0;
+
+  m_dataSet.reset();
 
   std::auto_ptr<te::da::DataSetType> schema = m_coordLayer->getSchema();
 
@@ -290,11 +389,6 @@ void te::qt::plugins::tv5plugins::TrackClassifier::drawSelecteds()
 {
   if (!m_coordLayer.get())
     return;
-
-  if (!m_objIdSet || m_objIdSet->size() == 0)
-  {
-    return;
-  }
 
   // Gets the layer schema
   std::auto_ptr<const te::map::LayerSchema> schema(m_coordLayer->getSchema());
@@ -338,20 +432,16 @@ void te::qt::plugins::tv5plugins::TrackClassifier::drawSelecteds()
   try
   {
     // Gets the dataset
-    std::auto_ptr<te::da::DataSet> dataset = m_coordLayer->getData(m_objIdSet);
-    assert(dataset.get());
+    if (m_point0)
+      canvas.draw(m_point0);
 
-    while (dataset->moveNext())
-    {
-      std::auto_ptr<te::gm::Geometry> g(dataset->getGeometry(gp->getName()));
+    if (m_point1)
+      canvas.draw(m_point1);
 
-      if (g->getSRID() == TE_UNKNOWN_SRS)
-        g->setSRID(m_coordLayer->getSRID());
+    if (m_point2)
+      canvas.draw(m_point2);
 
-      canvas.draw(g.get());
-    }
-
-    if (m_objIdSet->size() >= 3)
+    if (m_point2)
     {
       delete m_buffer;
 
@@ -359,75 +449,58 @@ void te::qt::plugins::tv5plugins::TrackClassifier::drawSelecteds()
 
       std::list<te::gm::Point*> track;
 
-      m_buffer = createBuffer(dataset, m_coordLayer->getSRID(), gp->getName(), line, track);
+      m_buffer = createBuffer(m_coordLayer->getSRID(), gp->getName(), line, track);
 
-      te::gm::Polygon* poly = dynamic_cast<te::gm::Polygon*>(m_buffer);
-
-      if (poly && poly->isValid() && poly->getNumRings() > 0)
+      if (m_buffer)
       {
-        canvas.draw(line);
+        te::gm::Polygon* poly = dynamic_cast<te::gm::Polygon*>(m_buffer);
 
-        canvas.draw(m_buffer);
-
-        for (std::list<te::gm::Point*>::iterator it = track.begin(); it != track.end(); ++it)
+        if (poly && poly->isValid() && poly->getNumRings() > 0)
         {
-          canvas.draw(*it);
+          canvas.draw(line);
+
+          canvas.draw(m_buffer);
+
+          for (std::list<te::gm::Point*>::iterator it = track.begin(); it != track.end(); ++it)
+          {
+            canvas.draw(*it);
+          }
         }
       }
     }
   }
   catch (std::exception& e)
   {
-    QMessageBox::critical(m_display, tr("Error"), QString(tr("Error erasing geometry. Details:") + " %1.").arg(e.what()));
+    QMessageBox::critical(m_display, tr("Error"), QString(tr("Error creating buffer. Details:") + " %1.").arg(e.what()));
     return;
   }
 }
 
-te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std::auto_ptr<te::da::DataSet> dataset, int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track)
+te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track)
 {
   std::auto_ptr<te::da::DataSetType> schema = m_coordLayer->getSchema();
 
-  //get first point selected (root)
-  dataset->moveFirst();
-
-  te::gm::Geometry* gClone = dynamic_cast<te::gm::Geometry*>(m_starter->clone());
-
-  std::auto_ptr<te::gm::Geometry> rootGeom(gClone);
-
   std::vector<std::string> pnames;
   te::da::GetOIDPropertyNames(schema.get(), pnames);
-  te::da::ObjectId* objIdRoot = m_starterObjId;
-
-  rootGeom->setSRID(srid);
+  te::da::ObjectId* objIdRoot = m_objId0;
 
   //get sample info
-  double distance, angle, invertedAngle;
+  double distance, dx, dy;
 
-  getTrackInfo(dataset, gpName, distance, angle, invertedAngle);
+  getTrackInfo(distance, dx, dy);
 
   //get parcel geom
-  std::auto_ptr<te::gm::Geometry> parcelGeom = getParcelGeeom(rootGeom.get());
+  int parcelId;
+  std::auto_ptr<te::gm::Geometry> parcelGeom = getParcelGeeom(m_point0, parcelId);
 
   parcelGeom->setSRID(srid);
 
   te::da::GetEmptyOIDSet(schema.get(), m_track);
 
-  bool insideParcel = parcelGeom->covers(rootGeom.get());
+  bool insideParcel = parcelGeom->covers(m_point0);
 
-  te::gm::Point* rootPoint = 0;
+  te::gm::Point* rootPoint = m_point0;
   
-  if (rootGeom->getGeomTypeId() == te::gm::MultiPointType)
-  {
-    te::gm::MultiPoint* mPoint = dynamic_cast<te::gm::MultiPoint*>(rootGeom.get());
-    rootPoint = dynamic_cast<te::gm::Point*>(mPoint->getGeometryN(0));
-  }
-  else if (rootGeom->getGeomTypeId() == te::gm::PointType)
-  {
-    rootPoint = dynamic_cast<te::gm::Point*>(rootGeom.get());
-  }
-
-  rootPoint->setSRID(srid);
-
   track.push_back(new te::gm::Point(*rootPoint));
 
   te::gm::Point* starter = new te::gm::Point(*rootPoint);
@@ -436,17 +509,21 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
 
   bool invert = false;
 
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+
   while (insideParcel)
   {
-    te::gm::Point* guestPoint = createGuessPoint(rootPoint, distance, angle, srid);
+    //te::gm::Point* guestPoint = createGuessPoint(rootPoint, distance, angle, srid);
+
+    te::gm::Point* guestPoint = createGuessPoint(rootPoint, dx, dy, srid);
     
     //create envelope to find if guest point exist
     te::gm::Envelope ext(guestPoint->getX(), guestPoint->getY(), guestPoint->getX(), guestPoint->getY());
 
-    ext.m_llx -= distance;
-    ext.m_lly -= distance;
-    ext.m_urx += distance;
-    ext.m_ury += distance;
+    ext.m_llx -= (distance * TOLERANCE_FACTOR);
+    ext.m_lly -= (distance * TOLERANCE_FACTOR);
+    ext.m_urx += (distance * TOLERANCE_FACTOR);
+    ext.m_ury += (distance * TOLERANCE_FACTOR);
 
     //check on tree
     std::vector<int> resultsTree;
@@ -470,6 +547,94 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
         {
           track.push_front(new te::gm::Point(*rootPoint));
         }
+
+
+        if (!m_dataSet.get())
+        {
+          std::auto_ptr<te::da::DataSetType> dsType = m_coordLayer->getSchema();
+
+          //create dataset type
+          std::auto_ptr<te::da::DataSetType> dataSetType(new te::da::DataSetType(dsType->getName()));
+
+          //create id property
+          te::dt::SimpleProperty* idProperty = new te::dt::SimpleProperty("id", te::dt::INT32_TYPE);
+          dataSetType->add(idProperty);
+
+          //create origin id property
+          te::dt::SimpleProperty* originIdProperty = new te::dt::SimpleProperty("originId", te::dt::INT32_TYPE);
+          dataSetType->add(originIdProperty);
+
+          //create area property
+          te::dt::SimpleProperty* areaProperty = new te::dt::SimpleProperty("area", te::dt::DOUBLE_TYPE);
+          dataSetType->add(areaProperty);
+
+          //create forest type
+          te::dt::StringProperty* typeProperty = new te::dt::StringProperty("type");
+          dataSetType->add(typeProperty);
+
+          //create geometry property
+          te::gm::GeometryProperty* geomProperty = new te::gm::GeometryProperty("geom", m_coordLayer->getSRID(), te::gm::PointType);
+          dataSetType->add(geomProperty);
+
+          m_dataSet.reset(new te::mem::DataSet(dataSetType.get()));
+        }
+
+        std::string forestType = "UNKNOWN";
+
+        te::gm::Envelope extPoint(guestPoint->getX(), guestPoint->getY(), guestPoint->getX(), guestPoint->getY());
+
+        std::vector<int> resultsPolyTree;
+
+        m_polyRtree.search(extPoint, resultsPolyTree);
+
+        if (resultsPolyTree.empty())
+        {
+          forestType = "DEAD";
+        }
+        else
+        {
+          bool found = false;
+          for (std::size_t t = 0; t < resultsPolyTree.size(); ++t)
+          {
+            std::map<int, te::gm::Geometry*>::iterator it = m_polyGeomMap.find(resultsPolyTree[t]);
+
+            bool covers = it->second->covers(guestPoint);
+
+            if (covers)
+            {
+              found = true;
+              break;
+            }
+          }
+
+          if (found)
+            forestType = "LIVE";
+          else
+            forestType = "DEAD";
+        }
+
+        //create dataset item
+        te::mem::DataSetItem* item = new te::mem::DataSetItem(m_dataSet.get());
+
+        //set id
+        item->setInt32(0, m_starterId);
+
+        //set origin id
+        item->setInt32(1, parcelId);
+
+        //set area
+        item->setDouble(2, 0.);
+
+        //forest type
+        item->setString(3, forestType);
+
+        //set geometry
+        item->setGeometry(4, new te::gm::Point(*rootPoint));
+
+        m_dataSet->add(item);
+
+        ++m_starterId;
+
       }
       else
       {
@@ -477,7 +642,8 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
         {
           invert = true;
           insideParcel = true;
-          angle = invertedAngle;
+          dx = dx * -1;
+          dy = dy * -1;
           rootPoint = starter;
         }
       }
@@ -490,34 +656,31 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
 
       bool found = false;
 
+      double lowerDistance = std::numeric_limits<double>::max();
+      te::gm::Point* newCandidate = 0;
+      te::da::ObjectId* newObjIdCandidate = 0;
+
       for (std::size_t t = 0; t < resultsTree.size(); ++t)
       {
         std::map<int, te::gm::Geometry*>::iterator it = m_centroidGeomMap.find(resultsTree[t]);
 
         std::map<int, te::da::ObjectId*>::iterator itObjId = m_centroidObjIdMap.find(resultsTree[t]);
 
-        if (rootGeom->getGeomTypeId() == te::gm::MultiPointType)
-        {
-          te::gm::MultiPoint* mPoint = dynamic_cast<te::gm::MultiPoint*>(it->second);
-          pCandidate = dynamic_cast<te::gm::Point*>(mPoint->getGeometryN(0));
-        }
-        else if (rootGeom->getGeomTypeId() == te::gm::PointType)
-        {
-          pCandidate = dynamic_cast<te::gm::Point*>(it->second);
-        }
+        pCandidate = getPoint(it->second);
 
         pCandidate->setSRID(srid);
 
         if (rootPoint->getX() != pCandidate->getX() || rootPoint->getY() != pCandidate->getY())
         {
-          if (centroidsSameTrack(rootPoint, pCandidate, angle))
+          //check for lower distance from guest point
+          double dist = std::abs(guestPoint->distance(pCandidate));
+
+          if (dist < lowerDistance)
           {
-            rootPoint = pCandidate;
+            lowerDistance = dist;
+            newCandidate = pCandidate;
+            newObjIdCandidate = itObjId->second;
             found = true;
-
-            m_track->add(itObjId->second);
-
-            break;
           }
         }
       }
@@ -525,6 +688,11 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
       if (!found)
       {
         rootPoint = guestPoint;
+      }
+      else
+      {
+        rootPoint = newCandidate;
+        m_track->add(newObjIdCandidate);
       }
 
       insideParcel = parcelGeom->covers(rootPoint);
@@ -546,14 +714,22 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
         {
           invert = true;
           insideParcel = true;
-          angle = invertedAngle;
+          dx = dx * -1;
+          dy = dy * -1;
           rootPoint = starter;
         }
       }
     }
   }
 
+  QApplication::restoreOverrideCursor();
+
   delete starter;
+
+  if (track.size() < 2)
+  {
+    return 0;
+  }
 
   //create buffer
   lineBuffer = new te::gm::LineString(track.size(), te::gm::LineStringType, srid);
@@ -576,32 +752,19 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(std
   return lineBuffer->buffer(DISTANCE_BUFFER, 1000, te::gm::CapButtType);
 }
 
-void te::qt::plugins::tv5plugins::TrackClassifier::getTrackInfo(std::auto_ptr<te::da::DataSet> dataset, std::string gpName, double& distance, double& angle, double& invertedAngle)
+void te::qt::plugins::tv5plugins::TrackClassifier::getTrackInfo(double& distance, double& dx, double& dy)
 {
-  distance = 0.;
-  angle = 0.;
-  invertedAngle = 0.;
-  dataset->moveFirst();
+  distance = m_point0->distance(m_point1);
+  double bigDistance = m_point0->distance(m_point2);
 
-  std::auto_ptr<te::gm::Geometry> gFirst(dataset->getGeometry(gpName));
+  double big_dx = m_point2->getX() - m_point0->getX();
+  double big_dy = m_point2->getY() - m_point0->getY();
 
-  while (dataset->moveNext())
-  {
-    std::auto_ptr<te::gm::Geometry> gNext(dataset->getGeometry(gpName));
-
-    distance += gFirst->distance(gNext.get());
-    angle += getAngle(gNext.get(), gFirst.get());
-    invertedAngle += getAngle(gFirst.get(), gNext.get());
-
-    gFirst = gNext;
-  }
-
-  distance = distance / (dataset->size() - 1);
-  angle = angle / (dataset->size() - 1);
-  invertedAngle = invertedAngle / (dataset->size() - 1);
+  dx = distance * big_dx / bigDistance;
+  dy = distance * big_dy / bigDistance;
 }
 
-std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackClassifier::getParcelGeeom(te::gm::Geometry* root)
+std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackClassifier::getParcelGeeom(te::gm::Geometry* root, int& parcelId)
 {
   if (!m_parcelLayer.get())
     throw;
@@ -625,125 +788,39 @@ std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackClassifier::ge
 
   te::gm::GeometryProperty* gp = te::da::GetFirstGeomProperty(schema.get());
 
+  te::da::PrimaryKey* pk = schema->getPrimaryKey();
+  std::string name = pk->getProperties()[0]->getName();
+
   // Gets the dataset
   std::auto_ptr<te::da::DataSet> dataset = m_parcelLayer->getData(gp->getName(), &reprojectedEnvelope, te::gm::INTERSECTS);
 
   assert(dataset.get());
 
-  dataset->moveFirst();
+  dataset->moveBeforeFirst();
 
-  std::auto_ptr<te::gm::Geometry> g(dataset->getGeometry(gp->getName()));
+  std::auto_ptr<te::gm::Geometry> g;
+
+  while (dataset->moveNext())
+  {
+    g = dataset->getGeometry(gp->getName());
+
+    if (g->getSRID() == TE_UNKNOWN_SRS)
+      g->setSRID(m_coordLayer->getSRID());
+
+    if (g->covers(root))
+    {
+      parcelId = dataset->getInt32(name);
+
+      break;
+    }
+  }
 
   return g;
 }
 
-double te::qt::plugins::tv5plugins::TrackClassifier::getAngle(te::gm::Geometry* first, te::gm::Geometry* last)
+te::gm::Point* te::qt::plugins::tv5plugins::TrackClassifier::createGuessPoint(te::gm::Point* p, double dx, double dy, int srid)
 {
-  te::gm::Point* lastPoint = 0;
-  te::gm::Point* firstPoint = 0;
-
-  if (first->getGeomTypeId() == te::gm::MultiPointType)
-  {
-    te::gm::MultiPoint* mlastPoint = dynamic_cast<te::gm::MultiPoint*>(last);
-    lastPoint = dynamic_cast<te::gm::Point*>(mlastPoint->getGeometryN(0));
-
-    te::gm::MultiPoint* mfirstPoint = dynamic_cast<te::gm::MultiPoint*>(first);
-    firstPoint = dynamic_cast<te::gm::Point*>(mfirstPoint->getGeometryN(0));
-  }
-  else if (first->getGeomTypeId() == te::gm::PointType)
-  {
-    lastPoint = dynamic_cast<te::gm::Point*>(last);
-    firstPoint = dynamic_cast<te::gm::Point*>(first);
-  }
-
-  double dx = lastPoint->getX() - firstPoint->getX();
-  double ax = fabs(dx);
-  double dy = lastPoint->getY() - firstPoint->getY();
-  double ay = fabs(dy);
-
-  double t = 0.0;
-
-  if ((dx == 0.0) && (dy == 0.0))
-    t = 0.0;
-  else
-    t = dy / (ax + ay);
-
-  if (dx < 0.0)
-    t = 2 - t;
-  else if (dy < 0.0)
-    t = 4.0 + t;
-
-  double angle = t * 90.0;
-
-  return angle;
-}
-
-bool te::qt::plugins::tv5plugins::TrackClassifier::centroidsSameTrack(te::gm::Point* first, te::gm::Point* last, double parcelAngle)
-{
-  assert(first && last);
-
-  double angle = getAngle(first, last);
-
-  //check tolerance
-  double absDiff = abs(parcelAngle - angle);
-
-  if (absDiff > ANGLE_TOL)
-    return false;
-  else
-    return true;
-}
-
-te::gm::Point* te::qt::plugins::tv5plugins::TrackClassifier::createGuessPoint(te::gm::Point* p, double distance, double angle, int srid)
-{
-  te::gm::Coord2D c(p->getX(), p->getY());
-
-  te::gm::LineString* lIn = new te::gm::LineString(2, te::gm::LineStringType, srid);
-  lIn->setPoint(0, p->getX(), p->getY());
-  lIn->setPoint(1, p->getX() + distance, p->getY());
-
-  te::gm::LineString* lOut = new te::gm::LineString(2, te::gm::LineStringType, srid);
-
-  rotate(c, lIn, angle, lOut);
-
-  return new te::gm::Point(lOut->getPointN(1)->getX(), lOut->getPointN(1)->getY(), srid);
-}
-
-bool te::qt::plugins::tv5plugins::TrackClassifier::rotate(te::gm::Coord2D pr, te::gm::LineString* l, double angle, te::gm::LineString* lOut)
-{
-  double alfa;
-  double dx, dy;
-  double x, y;
-  double xr, yr;
-
-  try
-  {
-    if (l->size() < 2)
-      return (false);
-
-    alfa = (4.*atan(1.)*angle) / 180.;//transform Degree to Radius
-
-    dx = pr.getX();
-    dy = pr.getY();
-
-    for (std::size_t count = 0; count < l->size(); count++)
-    {
-      std::auto_ptr<te::gm::Point> curPoint(l->getPointN(count));
-
-      x = curPoint->getX() - dx;
-      y = curPoint->getY() - dy;
-
-      xr = x * cos(alfa) - y * sin(alfa);
-      yr = x * sin(alfa) + y * cos(alfa);
-
-      lOut->setPoint(count, xr + dx, yr + dy);
-    }
-  }
-  catch (...)
-  {
-    return false;
-  }
-
-  return true;
+  return new te::gm::Point(p->getX() + dx, p->getY() + dy, srid);
 }
 
 te::da::ObjectIdSet* te::qt::plugins::tv5plugins::TrackClassifier::getBufferObjIdSet()
@@ -808,8 +885,125 @@ te::da::ObjectIdSet* te::qt::plugins::tv5plugins::TrackClassifier::getBufferObjI
   return oids;
 }
 
+void te::qt::plugins::tv5plugins::TrackClassifier::getClassDataSets(te::da::DataSetType* dsType, te::mem::DataSet*& liveDataSet, te::mem::DataSet*& intruderDataSet)
+{
+  // Bulding the query box
+  te::gm::Envelope envelope(*m_buffer->getMBR());
+
+  te::gm::Envelope reprojectedEnvelope(envelope);
+
+  if ((m_coordLayer->getSRID() != TE_UNKNOWN_SRS) && (m_display->getSRID() != TE_UNKNOWN_SRS) && (m_coordLayer->getSRID() != m_display->getSRID()))
+    reprojectedEnvelope.transform(m_display->getSRID(), m_coordLayer->getSRID());
+
+  if (!reprojectedEnvelope.intersects(m_coordLayer->getExtent()))
+    throw;
+
+  // Gets the layer schema
+  std::auto_ptr<const te::map::LayerSchema> schema(m_coordLayer->getSchema());
+
+  if (!schema->hasGeom())
+    throw;
+
+  try
+  {
+    te::gm::GeometryProperty* gp = te::da::GetFirstGeomProperty(schema.get());
+
+    // Gets the dataset
+    std::auto_ptr<te::da::DataSet> dataset = m_coordLayer->getData(gp->getName(), &reprojectedEnvelope, te::gm::INTERSECTS);
+    assert(dataset.get());
+
+    std::vector<std::string> pnames;
+    te::da::GetOIDPropertyNames(schema.get(), pnames);
+
+    // Generates a geometry from the given extent. It will be used to refine the results
+    std::auto_ptr<te::gm::Geometry> geometryFromEnvelope(te::gm::GetGeomFromEnvelope(&reprojectedEnvelope, m_coordLayer->getSRID()));
+
+    while (dataset->moveNext())
+    {
+      std::auto_ptr<te::gm::Geometry> g(dataset->getGeometry(gp->getName()));
+
+      if (g->getSRID() == TE_UNKNOWN_SRS)
+        g->setSRID(m_coordLayer->getSRID());
+
+      if (!m_buffer->contains(g.get()))
+        continue;
+
+      // Feature found
+      te::da::ObjectId* objId = te::da::GenerateOID(dataset.get(), pnames);
+
+      if (m_track->contains(objId))//live
+      {
+        if (!liveDataSet)
+        {
+          liveDataSet = new te::mem::DataSet(dsType);
+        }
+
+        //create dataset item
+        te::mem::DataSetItem* item = new te::mem::DataSetItem(liveDataSet);
+
+        //fid
+        item->setInt32(0, dataset->getInt32("FID"));
+
+        //set id
+        item->setInt32(1, dataset->getInt32("id"));
+
+        //set origin id
+        item->setInt32(2, dataset->getInt32("originId"));
+
+        //set area
+        item->setDouble(3, dataset->getDouble("area"));
+
+        //forest type
+        item->setString(4, "LIVE");
+
+        //set geometry
+        item->setGeometry(5, g.release());
+
+        liveDataSet->add(item);
+      }
+      else//intruder
+      {
+        if (!intruderDataSet)
+        {
+          intruderDataSet = new te::mem::DataSet(dsType);
+        }
+
+        //create dataset item
+        te::mem::DataSetItem* item = new te::mem::DataSetItem(intruderDataSet);
+
+        //fid
+        item->setInt32(0, dataset->getInt32("FID"));
+
+        //set id
+        item->setInt32(1, dataset->getInt32("id"));
+
+        //set origin id
+        item->setInt32(2, dataset->getInt32("originId"));
+
+        //set area
+        item->setDouble(3, dataset->getDouble("area"));
+
+        //forest type
+        item->setString(4, "INTRUDER");
+
+        //set geometry
+        item->setGeometry(5, g.release());
+
+        intruderDataSet->add(item);
+      }
+    }
+  }
+  catch (std::exception& e)
+  {
+    QMessageBox::critical(m_display, tr("Error"), QString(tr("Error getting geometry. Details:") + " %1.").arg(e.what()));
+    throw;
+  }
+}
+
 void te::qt::plugins::tv5plugins::TrackClassifier::createRTree()
 {
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+
   te::common::FreeContents(m_centroidGeomMap);
   te::common::FreeContents(m_centroidObjIdMap);
 
@@ -851,139 +1045,80 @@ void te::qt::plugins::tv5plugins::TrackClassifier::createRTree()
 
     m_centroidObjIdMap.insert(std::map<int, te::da::ObjectId*>::value_type(id, te::da::GenerateOID(ds.get(), pnames)));
   }
+
+  //create polygons rtree
+  if (m_polyGeomMap.empty())
+  {
+    std::auto_ptr<const te::map::LayerSchema> schema(m_polyLayer->getSchema());
+    std::auto_ptr<te::da::DataSet> ds(m_polyLayer->getData());
+
+    //geom property info
+    te::gm::GeometryProperty* gmProp = te::da::GetFirstGeomProperty(schema.get());
+
+    int geomIdx = te::da::GetPropertyPos(schema.get(), gmProp->getName());
+
+    //id info
+    te::da::PrimaryKey* pk = schema->getPrimaryKey();
+
+    int idIdx = te::da::GetPropertyPos(schema.get(), pk->getProperties()[0]->getName());
+
+    ds->moveBeforeFirst();
+
+    while (ds->moveNext())
+    {
+      std::string strId = ds->getAsString(idIdx);
+
+      int id = atoi(strId.c_str());
+
+      te::gm::Geometry* g = ds->getGeometry(geomIdx).release();
+      const te::gm::Envelope* box = g->getMBR();
+
+      m_polyRtree.insert(*box, id);
+
+      m_polyGeomMap.insert(std::map<int, te::gm::Geometry*>::value_type(id, g));
+    }
+  }
+
+  QApplication::restoreOverrideCursor();
 }
 
-/*
-/ Classify track
+te::gm::Point* te::qt::plugins::tv5plugins::TrackClassifier::getPoint(te::gm::Geometry* g)
 {
-// on mouse down
-Point start (e.X(),e.y());
-createTrack (start,trees, parcels,0.2)
+  te::gm::Point* point = 0;
 
-//Show track
-// on mouse right selection
-switch (option) {
-case classify:
-track.persist(trees);
-break;
-case cancel:
-}
-}
+  if (g->getGeomTypeId() == te::gm::MultiPointType)
+  {
+    te::gm::MultiPoint* mPoint = dynamic_cast<te::gm::MultiPoint*>(g);
+    point = dynamic_cast<te::gm::Point*>(mPoint->getGeometryN(0));
+  }
+  else if (g->getGeomTypeId() == te::gm::PointType)
+  {
+    point = dynamic_cast<te::gm::Point*>(g);
+  }
 
-Class Track {
-List track;
-Public:
-Void createTree (Point position,string atribute){}
-Tree getLast() {
-if (!track.empty()){
-track.last();
-Tree tree=track.get();
-track.remove();
-return tree;
-} else return null;
-}
-Boolean persit(Layer trees) {
-while !track.empty() {
-// update Layer trees
-}
-}
+  return point;
 }
 
-Class Tree () {
-Point position;
-attribute
+void te::qt::plugins::tv5plugins::TrackClassifier::getStartIdValue()
+{
+  if (!m_coordLayer.get())
+    throw;
+
+  std::auto_ptr<te::da::DataSet> dataset = m_coordLayer->getData();
+  std::auto_ptr<te::da::DataSetType> dataSetType = m_coordLayer->getSchema();
+
+  te::da::PrimaryKey* pk = dataSetType->getPrimaryKey();
+  std::string name = pk->getProperties()[0]->getName();
+
+  dataset->moveBeforeFirst();
+
+  while (dataset->moveNext())
+  {
+    int id = dataset->getInt32(name);
+
+    if (id > m_starterId)
+      m_starterId = id;
+  }
+
+  ++m_starterId;
 }
-
-
-
-
-
-
-
-
-
-
-
-// Creates and classify a tree track
-// Gets all trees in a track defined by a start tree using parcel inter tree distance and direction.
-// The track will include live and dead trees in both directions.
-// Input:
-// start - a good tree in a track from will be automatically created a track
-// trees - a Layer where the trees are
-// parcels - a Layer with homogeneous plantation (track direction, inter trees distance, inter track distance)
-// toleranceFactor - a factor of track inter tree distance, normally 0.1 or 0.2, to search for the next tree.
-// Output:
-// the line track
-Boolean createTrack (STD::Deck& track, Point start,Layer trees, Layer parcels,Layer direction,long toleranceFactor){
-parcel=parcels.get(start);
-long direction = parcel.direction();
-long interTreeDistance = parcel.distance();
-long deltaX = Math.cos(direction)*interTreeDistance;
-long deltaY = Math.sin(parcel.direction())*interTreeDistance;
-long tolerance=interTreeDistance*toleranceFactor;
-Track trackForward = new Track();
-Track trackBackard = new Track();
-trackForward.insert(start);
-Point treePositon = Point (start.X()+deltaX,start.Y()+deltaY);
-//Creates a continuous tree track forward
-while  parcel.inside(treePosition) {
-if getTree(treePosition,tolerance) then { trackForward.createTree(treePosition,"live");}
-else{
-trackForward.createTree(treePosition,"dead");
-};
-treePosition = Point(treePosition.X()+deltaX,newtree.Y()+deltaY);
-}
-// Creates a continuous tree track backward
-while !trackForward.empty() {trackBackward.insert(trackForward.getLast());}
-treePosition= Point(start.X()-deltaX,start.Y()-deltaY);
-while  parcel.inside(treePosition) {
-if getTree(treePosition,tolerance) then { tracKbackward.createTree(treePosition,"live");}
-else{
-trackBackward.createTree(treePosition,"dead");};
-}
-treePosition = Point (treePosition.X()-deltaX,newtree.Y()-deltaY);
-}
-return trackBackward;
-}
-
-
-int assignIntruders(Line track, Layer trees, bufferDistance) {
-Polygon exclusion=createBuffer(track, bufferDistance); //??????
-List intruders = trees.inside(exclusion); //??????????
-while !intruders.empty() {
-//Assign intruder
-Tree intruder = intruders.get();
-trees.classifyTree(intruder. location(),"intruder");
-intruderCount++;
-}
-return intruderCount;
-}
-
-// Gets the closest tree from given treePosition
-// Input:
-// treePosition - the theoretical position of next tree in that track
-// tolerance - distance used to create a box around treePosition
-// Output:
-// treePosition - the tree closest from treePosition or treePosition unchanged if none tree was found
-//Return:
-// true - a nearest tree from treePosition was found
-// false - no tree was found
-boolean getTree (Layer trees,Point treePosition,float tolerance){
-Box b = Box(treePosition.X()-tolerance,treePosition.Y()-tolerance,treePosition.X()+tolerance,treePosition.Y()+tolerance);
-// Retrieve all points inside the defined box in the Layer
-List candidates = trees.getPoints (treePosition, b);
-if candidates.empty() then return false;
-if candidates.size() == 1 { treePosition=candidates.get(); return true }
-Tree nearest= candidates.get();
-long mindistance=sqrt(pow(nearest.X()-treePosition.X(),2)+pow(nearest.Y()-treePosition.Y(),2))
-while !candidates.empty() {
-Tree candidate=candidates.get();
-if (mindistance > long d=sqrt(pow(candidate.X()-treePosition.X(),2)+pow(candidate.Y()-treePosition.Y(),2)) then {
-nearest = candidate;
-mindistance = d;
-}
-treePosition = nearest;
-return true;
-}
-
-}*/

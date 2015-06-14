@@ -28,7 +28,6 @@
 #include <terralib/common/progress/TaskProgress.h>
 #include <terralib/common/STLUtils.h>
 #include <terralib/common/StringUtils.h>
-#include <terralib/dataaccess/datasource/DataSource.h>
 #include <terralib/dataaccess/datasource/DataSourceInfoManager.h>
 #include <terralib/dataaccess/datasource/DataSourceManager.h>
 #include <terralib/dataaccess/utils/Utils.h>
@@ -206,45 +205,6 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onThresholdSliderRel
   int curSliderValue = m_ui->m_thresholdHorizontalSlider->value();
 
   double value = (((double)curSliderValue) / (1000.)) * (max - min) + min;
-
-  ////set symbolizer
-  //te::se::Categorize* c = new te::se::Categorize();
-
-  //c->setFallbackValue("#000000");
-  //c->setLookupValue(new te::se::ParameterValue("Rasterdata"));
-
-  //QColor cGray(Qt::gray);
-  //std::string colorGrayStr = cGray.name().toLatin1().data();
-  //QColor cWhite(Qt::white);
-  //std::string colorWhiteStr = cWhite.name().toLatin1().data();
-  //QColor cBlack(Qt::black);
-  //std::string colorBlackStr = cBlack.name().toLatin1().data();
-
-  //c->addValue(new te::se::ParameterValue(colorGrayStr));
-  //c->addThreshold(new te::se::ParameterValue(QString::number(-std::numeric_limits<double>::max()).toStdString()));
-  //c->addValue(new te::se::ParameterValue(colorBlackStr));
-  //c->addThreshold(new te::se::ParameterValue(QString::number(value).toStdString()));
-  //c->addValue(new te::se::ParameterValue(colorWhiteStr));
-  //c->addThreshold(new te::se::ParameterValue(QString::number(std::numeric_limits<double>::max()).toStdString()));
-  //c->addValue(new te::se::ParameterValue(colorGrayStr));
-
-  //c->setThresholdsBelongTo(te::se::Categorize::SUCCEEDING);
-
-  //te::se::ColorMap* colorMap = new te::se::ColorMap();
-  //colorMap->setCategorize(c);
-
-  //if(!m_styleThresholdRaster.get())
-  //{
-  //  m_styleThresholdRaster.reset(te::se::CreateCoverageStyle(m_thresholdRaster.get()->getNumberOfBands()));
-  //}
-
-  //const te::se::Rule* rule = m_styleThresholdRaster->getRule(0);
-  //const std::vector<te::se::Symbolizer*>& symbolizers = rule->getSymbolizers();
-  //te::se::RasterSymbolizer* rasterSymbolizer = dynamic_cast<te::se::RasterSymbolizer*>(symbolizers[0]);
-
-  //rasterSymbolizer->setColorMap(colorMap);
-
-  //drawRaster(m_thresholdRaster.get(), m_thresholdDisplay.get(), m_styleThresholdRaster.get());
 
   //get original raster
   QVariant varLayer = m_ui->m_originalLayerComboBox->itemData(m_ui->m_originalLayerComboBox->currentIndex(), Qt::UserRole);
@@ -573,27 +533,9 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
   std::string repository = m_ui->m_repositoryLineEdit->text().toStdString();
 
   //create new data source
-  boost::filesystem::path uri(repository);
-
   std::map<std::string, std::string> dsInfo;
-  dsInfo["URI"] = uri.string();
 
-  boost::uuids::basic_random_generator<boost::mt19937> gen;
-  boost::uuids::uuid u = gen();
-  std::string id_ds = boost::uuids::to_string(u);
-
-  te::da::DataSourceInfoPtr dsInfoPtr(new te::da::DataSourceInfo);
-  dsInfoPtr->setConnInfo(dsInfo);
-  dsInfoPtr->setTitle(uri.stem().string());
-  dsInfoPtr->setAccessDriver("OGR");
-  dsInfoPtr->setType("OGR");
-  dsInfoPtr->setDescription(uri.string());
-  dsInfoPtr->setId(id_ds);
-
-  te::da::DataSourceInfoManager::getInstance().add(dsInfoPtr);
-
-  te::da::DataSourcePtr outputDataSource = te::da::DataSourceManager::getInstance().get(id_ds, "OGR", dsInfoPtr->getConnInfo());
-
+  te::da::DataSourcePtr outputDataSource = createDataSource(repository, dsInfo);
 
   //create datasource to save the output information
   std::string dataSetName = m_ui->m_newLayerNameLineEdit->text().toStdString();
@@ -602,16 +544,23 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
   if (idx != std::string::npos)
     dataSetName = dataSetName.substr(0, idx);
 
+  std::string repName = m_ui->m_repositoryLineEdit->text().toStdString();
+
+  idx = repName.find(".");
+  if (idx != std::string::npos)
+    repName = repName.substr(0, idx);
+
+  //create datasource to save polygons information
+  std::string polyDataSourcePath = repName + "_polygons" + ".shp";
+
+  std::map<std::string, std::string> polyDsInfo;
+
+  te::da::DataSourcePtr polyOutputDataSource = createDataSource(polyDataSourcePath, polyDsInfo);
+
   QApplication::setOverrideCursor(Qt::WaitCursor);
 
   try
   {
-    std::string repName = m_ui->m_repositoryLineEdit->text().toStdString();
-
-    std::size_t idx = repName.find(".");
-    if (idx != std::string::npos)
-      repName = repName.substr(0, idx);
-
     std::map<std::string, std::string> rInfo;
     //rInfo["FORCE_MEM_DRIVER"] = "TRUE";
 
@@ -640,6 +589,8 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
 
     te::common::TaskProgress task("Associating Centroids");
     task.setTotalSteps(size);
+
+    std::vector<te::gm::Geometry*> fullGeomVec;
 
     //get geometries
     while (dataSet->moveNext())
@@ -678,7 +629,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
 
       if (!poly || !poly->isValid())
         continue;
-          
+
       //create raster crop from parcel
       rInfo["URI"] = repName + "_parcel_" + te::common::Convert2String(parcelId) + ".tif";
       te::rst::RasterPtr parcelRaster(te::rst::CropRaster(*ndviRst.get(), *poly, rInfo, type));
@@ -708,7 +659,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
         if (idx != std::string::npos)
           repName = repName.substr(0, idx);
 
-        std::string rasterFileName = repName + "_" + te::common::Convert2String(parcelId) +".tif";
+        std::string rasterFileName = repName + "_" + te::common::Convert2String(parcelId) + ".tif";
 
         te::qt::plugins::tv5plugins::ExportRaster(dilationRaster.get(), rasterFileName);
       }
@@ -721,13 +672,16 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
       //get centroids
       te::qt::plugins::tv5plugins::ExtractCentroids(geomVec, centroidsVec, parcelId);
 
-      te::common::FreeContents(geomVec);
+      if (geomVec.size() > 2)
+      {
+        for (std::size_t t = 1; t < geomVec.size(); ++t)
+        {
+          fullGeomVec.push_back(geomVec[t]);
+        }
+      }
 
       geomVec.clear();
     }
-
-    //associate geometries
-    //AssociateObjects(vecLayer.get(), centroidsVec, ndviRst->getSRID());
 
     //export data
     te::qt::plugins::tv5plugins::ExportVector(centroidsVec, dataSetName, "OGR", dsInfo, ndviRst->getSRID());
@@ -735,6 +689,14 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     te::common::FreeContents(centroidsVec);
 
     centroidsVec.clear();
+
+    std::string polyDataSetName = dataSetName + "_polygons";
+
+    te::qt::plugins::tv5plugins::ExportPolyVector(fullGeomVec, polyDataSetName, "OGR", polyDsInfo, ndviRst->getSRID());
+
+    te::common::FreeContents(fullGeomVec);
+
+    fullGeomVec.clear();
 
     //create layer
     te::da::DataSourcePtr outDataSource = te::da::GetDataSource(outputDataSource->getId());
@@ -801,4 +763,27 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::drawRaster(te::rst::
     delete style;
 
   mapDisplay->repaint();
+}
+
+te::da::DataSourcePtr te::qt::plugins::tv5plugins::ForestMonitorClassDialog::createDataSource(std::string repository, std::map<std::string, std::string>& dsInfo)
+{
+  boost::filesystem::path uri(repository);
+
+  dsInfo["URI"] = uri.string();
+
+  boost::uuids::basic_random_generator<boost::mt19937> gen;
+  boost::uuids::uuid u = gen();
+  std::string id_ds = boost::uuids::to_string(u);
+
+  te::da::DataSourceInfoPtr dsInfoPtr(new te::da::DataSourceInfo);
+  dsInfoPtr->setConnInfo(dsInfo);
+  dsInfoPtr->setTitle(uri.stem().string());
+  dsInfoPtr->setAccessDriver("OGR");
+  dsInfoPtr->setType("OGR");
+  dsInfoPtr->setDescription(uri.string());
+  dsInfoPtr->setId(id_ds);
+
+  te::da::DataSourceInfoManager::getInstance().add(dsInfoPtr);
+
+  return te::da::DataSourceManager::getInstance().get(id_ds, "OGR", dsInfoPtr->getConnInfo());
 }

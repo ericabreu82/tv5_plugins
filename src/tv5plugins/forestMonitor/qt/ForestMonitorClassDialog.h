@@ -27,6 +27,7 @@
 #define __TE_QT_PLUGINS_THIRDPARTY_INTERNAL_FORESTMONITORCLASSDIALOG_H
 
 // TerraLib
+#include <terralib/dataaccess/datasource/DataSource.h>
 #include <terralib/dataaccess/datasource/DataSourceInfo.h>
 #include <terralib/geometry/Envelope.h>
 #include <terralib/maptools/AbstractLayer.h>
@@ -94,6 +95,8 @@ namespace te
           protected:
 
             void drawRaster(te::rst::Raster* raster, te::qt::widgets::MapDisplay* mapDisplay, te::se::Style* style = 0);
+
+            te::da::DataSourcePtr createDataSource(std::string repository, std::map<std::string, std::string>& dsInfo);
 
           private:
 

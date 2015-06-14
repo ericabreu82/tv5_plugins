@@ -74,6 +74,8 @@ namespace te
 
             void onTrackClassifierToolButtonClicked(bool flag);
 
+            void onCreatorToolButtonClicked(bool flag);
+
           private:
 
             std::auto_ptr<Ui::ForestMonitorToolBarDialogForm> m_ui;

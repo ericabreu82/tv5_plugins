@@ -24,6 +24,7 @@
 // TerraLib
 #include <terralib/dataaccess/dataset/ObjectIdSet.h>
 #include <terralib/maptools/AbstractLayer.h>
+#include <terralib/memory/DataSet.h>
 #include <terralib/qt/widgets/tools/AbstractTool.h>
 #include "../../../Config.h"
 
@@ -75,7 +76,7 @@ namespace te
 
             \note The tool will NOT take the ownership of the given pointers.
             */
-          TrackClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, QObject* parent = 0);
+          TrackClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr polyLayer, QObject* parent = 0);
 
           /*! \brief Destructor. */
           ~TrackClassifier();
@@ -101,41 +102,54 @@ namespace te
 
           void drawSelecteds();
 
-          te::gm::Geometry* createBuffer(std::auto_ptr<te::da::DataSet> dataset, int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track);
+          te::gm::Geometry* createBuffer(int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track);
 
-          void getTrackInfo(std::auto_ptr<te::da::DataSet> dataset, std::string gpName, double& distance, double& angle, double& invertedAngle);
+          void getTrackInfo(double& distance, double& dx, double& dy);
 
-          std::auto_ptr<te::gm::Geometry> getParcelGeeom(te::gm::Geometry* root);
+          std::auto_ptr<te::gm::Geometry> getParcelGeeom(te::gm::Geometry* root, int& parcelId);
 
-          double getAngle(te::gm::Geometry* first, te::gm::Geometry* last);
-
-          bool centroidsSameTrack(te::gm::Point* first, te::gm::Point* last, double parcelAngle);
-
-          te::gm::Point* createGuessPoint(te::gm::Point* p, double distance, double angle, int srid);
-
-          bool rotate(te::gm::Coord2D pr, te::gm::LineString* l, double angle, te::gm::LineString* lOut);
+          te::gm::Point* createGuessPoint(te::gm::Point* p, double dx, double dy, int srid);
 
           te::da::ObjectIdSet* getBufferObjIdSet();
 
+          void getClassDataSets(te::da::DataSetType* dsType, te::mem::DataSet*& liveDataSet, te::mem::DataSet*& intruderDataSet);
+
           void createRTree();
+
+          te::gm::Point* getPoint(te::gm::Geometry* g);
+
+          void getStartIdValue();
 
         private:
 
           te::map::AbstractLayerPtr m_coordLayer;         //!<The layer that will be classified.
           te::map::AbstractLayerPtr m_parcelLayer;        //!<The layer with geometry restriction.
+          te::map::AbstractLayerPtr m_polyLayer;          //!<The layer with polygons geometry.
 
-          te::da::ObjectIdSet* m_objIdSet;
-          
           te::da::ObjectIdSet* m_objIdTrackSet;
+
+          te::sam::rtree::Index<int> m_polyRtree;
+          std::map<int, te::gm::Geometry*> m_polyGeomMap;
 
           te::sam::rtree::Index<int> m_centroidRtree;
           std::map<int, te::gm::Geometry*> m_centroidGeomMap;
           std::map<int, te::da::ObjectId*> m_centroidObjIdMap;
 
-          te::gm::Geometry* m_starter;
-          te::da::ObjectId* m_starterObjId;
+          te::gm::Point* m_point0;
+          te::da::ObjectId* m_objId0;
+
+          te::gm::Point* m_point1;
+          te::da::ObjectId* m_objId1;
+
+          te::gm::Point* m_point2;
+          te::da::ObjectId* m_objId2;
+
           te::gm::Geometry* m_buffer;
           te::da::ObjectIdSet* m_track;
+
+          std::auto_ptr<te::mem::DataSet> m_dataSet;
+
+          int m_starterId;
         };
 
       } // end namespace tv5plugins

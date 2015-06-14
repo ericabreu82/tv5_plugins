@@ -32,6 +32,7 @@
 #include <terralib/dataaccess/datasource/DataSourceFactory.h>
 #include <terralib/dataaccess/utils/Utils.h>
 #include <terralib/datatype/SimpleProperty.h>
+#include <terralib/datatype/StringProperty.h>
 #include <terralib/geometry/GeometryProperty.h>
 #include <terralib/geometry/MultiPolygon.h>
 #include <terralib/geometry/Utils.h>
@@ -175,6 +176,7 @@ void te::qt::plugins::tv5plugins::ExtractCentroids(std::vector<te::gm::Geometry*
       ci->m_point = point;
       ci->m_area = area;
       ci->m_parentId = parcelId;
+      ci->type = te::qt::plugins::tv5plugins::FOREST_UNKNOWN;
 
       centroids.push_back(ci);
     }
@@ -259,6 +261,10 @@ void te::qt::plugins::tv5plugins::ExportVector(std::vector<te::qt::plugins::tv5p
   te::dt::SimpleProperty* areaProperty = new te::dt::SimpleProperty("area", te::dt::DOUBLE_TYPE);
   dataSetType->add(areaProperty);
 
+  //create forest type
+  te::dt::StringProperty* typeProperty = new te::dt::StringProperty("type");
+  dataSetType->add(typeProperty);
+
   //create geometry property
   te::gm::GeometryProperty* geomProperty = new te::gm::GeometryProperty("geom", srid, te::gm::PointType);
   dataSetType->add(geomProperty);
@@ -297,8 +303,76 @@ void te::qt::plugins::tv5plugins::ExportVector(std::vector<te::qt::plugins::tv5p
     //set area
     item->setDouble("area", ciVec[t]->m_area);
 
+    //forest type
+    if (ciVec[t]->type == te::qt::plugins::tv5plugins::FOREST_UNKNOWN)
+    {
+      item->setString("type", "UNKNOWN");
+    }
+
     //set geometry
     te::gm::Point* pClone = new te::gm::Point(*ciVec[t]->m_point);
+
+    item->setGeometry("geom", pClone);
+
+    dataSetMem->add(item);
+
+    task.pulse();
+  }
+
+  dataSetMem->moveBeforeFirst();
+
+  //save data set
+  std::auto_ptr<te::da::DataSource> dataSource = te::da::DataSourceFactory::make(dsType);
+  dataSource->setConnectionInfo(connInfo);
+  dataSource->open();
+
+  std::map<std::string, std::string> options;
+  dataSource->createDataSet(dataSetType.get(), options);
+  dataSource->add(dataSetName, dataSetMem.get(), options);
+}
+
+void te::qt::plugins::tv5plugins::ExportPolyVector(std::vector<te::gm::Geometry*>& geomVec, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid)
+{
+  assert(!geomVec.empty());
+
+  //create dataset type
+  std::auto_ptr<te::da::DataSetType> dataSetType(new te::da::DataSetType(dataSetName));
+
+  //create id property
+  te::dt::SimpleProperty* idProperty = new te::dt::SimpleProperty("id", te::dt::INT32_TYPE);
+  dataSetType->add(idProperty);
+
+  //create geometry property
+  te::gm::GeometryProperty* geomProperty = new te::gm::GeometryProperty("geom", srid, te::gm::PolygonType);
+  dataSetType->add(geomProperty);
+
+  //create primary key
+  std::string pkName = "pk_id";
+  pkName += "_" + dataSetName;
+  te::da::PrimaryKey* pk = new te::da::PrimaryKey(pkName, dataSetType.get());
+  pk->add(idProperty);
+
+  //create data set
+  std::auto_ptr<te::mem::DataSet> dataSetMem(new te::mem::DataSet(dataSetType.get()));
+
+  te::common::TaskProgress task("Exporting Polygons");
+  task.setTotalSteps(geomVec.size());
+
+  for (std::size_t t = 0; t < geomVec.size(); ++t)
+  {
+    if (!task.isActive())
+    {
+      break;
+    }
+
+    //create dataset item
+    te::mem::DataSetItem* item = new te::mem::DataSetItem(dataSetMem.get());
+
+    //set id
+    item->setInt32("id", (int)t);
+
+    //set geometry
+    te::gm::Polygon* pClone = new te::gm::Polygon(*dynamic_cast<te::gm::Polygon*>(geomVec[t]));
 
     item->setGeometry("geom", pClone);
 
