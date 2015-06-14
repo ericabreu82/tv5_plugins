@@ -87,8 +87,11 @@ bool te::qt::plugins::tv5plugins::Creator::eventFilter(QObject* watched, QEvent*
   {
     QKeyEvent* event = static_cast<QKeyEvent*>(e);
 
-    if (event->key() == Qt::Key_Insert)
+    if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Control)
       saveObjects();
+
+    if (event->key() == Qt::Key_Escape)
+      cancelOperation();
 
     return true;
   }
@@ -348,4 +351,16 @@ void te::qt::plugins::tv5plugins::Creator::getStartIdValue()
   }
 
   ++m_starterId;
+}
+
+void te::qt::plugins::tv5plugins::Creator::cancelOperation()
+{
+  // Clear draft!
+  QPixmap* draft = m_display->getDraftPixmap();
+  draft->fill(Qt::transparent);
+
+  m_dataSet.reset();
+
+  //repaint the layer
+  m_display->repaint();
 }

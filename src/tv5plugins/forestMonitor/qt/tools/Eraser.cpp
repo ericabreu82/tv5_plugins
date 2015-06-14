@@ -28,11 +28,13 @@
 #include <terralib/dataaccess/dataset/DataSet.h>
 #include <terralib/dataaccess/dataset/DataSetType.h>
 #include <terralib/dataaccess/utils/Utils.h>
+#include <terralib/datatype/StringProperty.h>
 #include <terralib/geometry/Geometry.h>
 #include <terralib/geometry/GeometryProperty.h>
 #include <terralib/geometry/Utils.h>
 #include <terralib/maptools/DataSetLayer.h>
 #include <terralib/maptools/MarkRendererManager.h>
+#include <terralib/memory/DataSetItem.h>
 #include <terralib/se/Fill.h>
 #include <terralib/se/Stroke.h>
 #include <terralib/se/Mark.h>
@@ -52,8 +54,7 @@
 
 te::qt::plugins::tv5plugins::Eraser::Eraser(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr layer, QObject* parent)
   : AbstractTool(display, parent),
-    m_layer(layer),
-    m_objIdSet(0)
+    m_layer(layer)
 {
   setCursor(cursor);
 
@@ -64,8 +65,6 @@ te::qt::plugins::tv5plugins::Eraser::~Eraser()
 {
   QPixmap* draft = m_display->getDraftPixmap();
   draft->fill(Qt::transparent);
-
-  delete m_objIdSet;
 }
 
 bool te::qt::plugins::tv5plugins::Eraser::eventFilter(QObject* watched, QEvent* e)
@@ -85,8 +84,11 @@ bool te::qt::plugins::tv5plugins::Eraser::eventFilter(QObject* watched, QEvent* 
   {
     QKeyEvent* event = static_cast<QKeyEvent*>(e);
 
-    if (event->key() == Qt::Key_Delete)
+    if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Control)
       removeObjects();
+
+    if (event->key() == Qt::Key_Escape)
+      cancelOperation();
 
     return true;
   }
@@ -134,8 +136,6 @@ void te::qt::plugins::tv5plugins::Eraser::selectObjects(QMouseEvent* e)
   if (!schema->hasGeom())
     return;
 
-  te::da::ObjectIdSet* oids = 0;
-
   try
   {
     te::gm::GeometryProperty* gp = te::da::GetFirstGeomProperty(schema.get());
@@ -143,13 +143,6 @@ void te::qt::plugins::tv5plugins::Eraser::selectObjects(QMouseEvent* e)
     // Gets the dataset
     std::auto_ptr<te::da::DataSet> dataset = m_layer->getData(gp->getName(), &reprojectedEnvelope, te::gm::INTERSECTS);
     assert(dataset.get());
-
-    // Let's generate the oids
-    te::da::GetEmptyOIDSet(schema.get(), oids);
-    assert(oids);
-
-    std::vector<std::string> pnames;
-    te::da::GetOIDPropertyNames(schema.get(), pnames);
 
     // Generates a geometry from the given extent. It will be used to refine the results
     std::auto_ptr<te::gm::Geometry> geometryFromEnvelope(te::gm::GetGeomFromEnvelope(&reprojectedEnvelope, m_layer->getSRID()));
@@ -164,8 +157,36 @@ void te::qt::plugins::tv5plugins::Eraser::selectObjects(QMouseEvent* e)
       if (!g->intersects(geometryFromEnvelope.get()))
         continue;
 
-      // Feature found
-      oids->add(te::da::GenerateOID(dataset.get(), pnames));
+      if (!m_dataSet.get())
+      {
+        std::auto_ptr<te::da::DataSetType> dsType = m_layer->getSchema();
+
+        m_dataSet.reset(new te::mem::DataSet(dsType.get()));
+      }
+
+      //create dataset item
+      te::mem::DataSetItem* item = new te::mem::DataSetItem(m_dataSet.get());
+
+      //fid
+      item->setInt32(0, dataset->getInt32("FID"));
+
+      //set id
+      item->setInt32(1, dataset->getInt32("id"));
+
+      //set origin id
+      item->setInt32(2, dataset->getInt32("originId"));
+
+      //set area
+      item->setDouble(3, dataset->getDouble("area"));
+
+      //forest type
+      item->setString(4, "REMOVED");
+
+      //set geometry
+      item->setGeometry(5, g.release());
+
+      m_dataSet->add(item);
+
     }
   }
   catch (std::exception& e)
@@ -173,13 +194,6 @@ void te::qt::plugins::tv5plugins::Eraser::selectObjects(QMouseEvent* e)
     QMessageBox::critical(m_display, tr("Error"), QString(tr("Error erasing geometry. Details:") + " %1.").arg(e.what()));
     return;
   }
-
-  if (!m_objIdSet)
-  {
-    te::da::GetEmptyOIDSet(schema.get(), m_objIdSet);
-  }
-
-  m_objIdSet->symDifference(oids);
 
   drawSelecteds();
 
@@ -194,30 +208,41 @@ void te::qt::plugins::tv5plugins::Eraser::removeObjects()
 
   try
   {
-    //remove entries
-    if (m_objIdSet->size() != 0)
+    te::map::DataSetLayer* dsLayer = dynamic_cast<te::map::DataSetLayer*>(m_layer.get());
+
+    if (dsLayer)
     {
-      te::map::DataSetLayer* dsLayer = dynamic_cast<te::map::DataSetLayer*>(m_layer.get());
+      std::auto_ptr<const te::map::LayerSchema> schema(m_layer->getSchema());
 
-      if (dsLayer)
+      te::da::DataSourcePtr dataSource = te::da::GetDataSource(dsLayer->getDataSourceId());
+
+      if (m_dataSet.get())
       {
-        std::auto_ptr<const te::map::LayerSchema> schema(m_layer->getSchema());
+        std::vector<size_t> ids;
+        ids.push_back(0);
 
-        te::da::DataSourcePtr dataSource = te::da::GetDataSource(dsLayer->getDataSourceId());
+        std::vector< std::set<int> > properties;
+        std::size_t dsSize = m_dataSet->size();
 
-        dataSource->remove(schema->getName(), m_objIdSet);
+        for (std::size_t t = 0; t < dsSize; ++t)
+        {
+          std::set<int> setPos;
+          setPos.insert(4);
 
-        delete m_objIdSet;
-        m_objIdSet = 0;
+          properties.push_back(setPos);
+        }
+
+        dataSource->update(schema->getName(), m_dataSet.get(), properties, ids);
       }
     }
-
   }
   catch (std::exception& e)
   {
     QMessageBox::critical(m_display, tr("Error"), QString(tr("Error erasing geometry. Details:") + " %1.").arg(e.what()));
     return;
   }
+
+  m_dataSet.reset();
 
   //repaint the layer
   m_display->refresh();
@@ -228,15 +253,10 @@ void te::qt::plugins::tv5plugins::Eraser::drawSelecteds()
   if (!m_layer.get())
     return;
 
-  if (!m_objIdSet || m_objIdSet->size() == 0)
-  {
+  if (!m_dataSet.get())
     return;
-  }
 
-  // Gets the layer schema
-  std::auto_ptr<const te::map::LayerSchema> schema(m_layer->getSchema());
-
-  te::gm::GeometryProperty* gp = te::da::GetFirstGeomProperty(schema.get());
+  std::size_t gmPos = te::da::GetFirstSpatialPropertyPos(m_dataSet.get());
 
   // Clear draft!
   QPixmap* draft = m_display->getDraftPixmap();
@@ -248,80 +268,37 @@ void te::qt::plugins::tv5plugins::Eraser::drawSelecteds()
   canvas.setWindow(displayExtent.m_llx, displayExtent.m_lly, displayExtent.m_urx, displayExtent.m_ury);
   canvas.setRenderHint(QPainter::Antialiasing, true);
 
-  switch (gp->getGeometryType())
-  {
-    case te::gm::PolygonType:
-    case te::gm::PolygonZType:
-    case te::gm::PolygonMType:
-    case te::gm::PolygonZMType:
-    case te::gm::MultiPolygonType:
-    case te::gm::MultiPolygonZType:
-    case te::gm::MultiPolygonMType:
-    case te::gm::MultiPolygonZMType:
-    {
-      canvas.setPolygonContourWidth(2);
-      canvas.setPolygonContourColor(te::color::RGBAColor(255, 0, 0, 128));
-      canvas.setPolygonFillColor(te::color::RGBAColor(255, 255, 255, 128));
-    }
-    break;
+  std::size_t size = 24;
 
-    case te::gm::LineStringType:
-    case te::gm::LineStringZType:
-    case te::gm::LineStringMType:
-    case te::gm::LineStringZMType:
-    case te::gm::MultiLineStringType:
-    case te::gm::MultiLineStringZType:
-    case te::gm::MultiLineStringMType:
-    case te::gm::MultiLineStringZMType:
-    {
-      canvas.setLineColor(te::color::RGBAColor(255, 0, 0, 128));
-      canvas.setLineWidth(6);
-    }
-    break;
+  te::se::Stroke* stroke = te::se::CreateStroke("#FF0000", "2", "0.5");
+  te::se::Fill* fill = te::se::CreateFill("#FFFFFF", "0.5");
+  te::se::Mark* mark = te::se::CreateMark("square", stroke, fill);
 
-    case te::gm::PointType:
-    case te::gm::PointZType:
-    case te::gm::PointMType:
-    case te::gm::PointZMType:
-    case te::gm::MultiPointType:
-    case te::gm::MultiPointZType:
-    case te::gm::MultiPointMType:
-    case te::gm::MultiPointZMType:
-    {
-      std::size_t size = 24;
+  te::color::RGBAColor** rgba = te::map::MarkRendererManager::getInstance().render(mark, size);
 
-      te::se::Stroke* stroke = te::se::CreateStroke("#FF0000", "2", "0.5");
-      te::se::Fill* fill = te::se::CreateFill("#FFFFFF", "0.5");
-      te::se::Mark* mark = te::se::CreateMark("square", stroke, fill);
+  canvas.setPointColor(te::color::RGBAColor(0, 0, 0, TE_TRANSPARENT));
+  canvas.setPointPattern(rgba, size, size);
 
-      te::color::RGBAColor** rgba = te::map::MarkRendererManager::getInstance().render(mark, size);
+  te::common::Free(rgba, size);
+  delete mark;
 
-      canvas.setPointColor(te::color::RGBAColor(0, 0, 0, TE_TRANSPARENT));
-      canvas.setPointPattern(rgba, size, size);
-
-      te::common::Free(rgba, size);
-      delete mark;
-    }
-    break;
-
-    default:
-      return;
-  }
 
   try
   {
     // Gets the dataset
-    std::auto_ptr<te::da::DataSet> dataset = m_layer->getData(m_objIdSet);
-    assert(dataset.get());
-
-    while (dataset->moveNext())
+    if (m_dataSet.get())
     {
-      std::auto_ptr<te::gm::Geometry> g(dataset->getGeometry(gp->getName()));
+      m_dataSet->moveBeforeFirst();
 
-      if (g->getSRID() == TE_UNKNOWN_SRS)
-        g->setSRID(m_layer->getSRID());
+      while (m_dataSet->moveNext())
+      {
+        std::auto_ptr<te::gm::Geometry> g(m_dataSet->getGeometry(gmPos));
 
-      canvas.draw(g.get());
+        if (g->getSRID() == TE_UNKNOWN_SRS)
+          g->setSRID(m_layer->getSRID());
+
+        canvas.draw(g.get());
+      }
     }
   }
   catch (std::exception& e)
@@ -329,5 +306,17 @@ void te::qt::plugins::tv5plugins::Eraser::drawSelecteds()
     QMessageBox::critical(m_display, tr("Error"), QString(tr("Error erasing geometry. Details:") + " %1.").arg(e.what()));
     return;
   }
+}
+
+void te::qt::plugins::tv5plugins::Eraser::cancelOperation()
+{
+  // Clear draft!
+  QPixmap* draft = m_display->getDraftPixmap();
+  draft->fill(Qt::transparent);
+
+  m_dataSet.reset();
+
+  //repaint the layer
+  m_display->repaint();
 }
 

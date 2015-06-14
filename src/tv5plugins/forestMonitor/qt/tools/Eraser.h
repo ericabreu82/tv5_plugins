@@ -29,6 +29,7 @@
 // TerraLib
 #include <terralib/dataaccess/dataset/ObjectIdSet.h>
 #include <terralib/maptools/AbstractLayer.h>
+#include <terralib/memory/DataSet.h>
 #include <terralib/qt/widgets/tools/AbstractTool.h>
 #include "../../../Config.h"
 
@@ -106,11 +107,15 @@ namespace te
 
           void drawSelecteds();
 
+          void cancelOperation();
+
         private:
 
           te::map::AbstractLayerPtr m_layer;        //!<The layer that will be queried.
 
-          te::da::ObjectIdSet* m_objIdSet;
+          std::auto_ptr<te::mem::DataSet> m_dataSet;
+
+          //te::da::ObjectIdSet* m_objIdSet;
         };
 
       } // end namespace tv5plugins

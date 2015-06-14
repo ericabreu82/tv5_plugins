@@ -115,7 +115,7 @@ bool te::qt::plugins::tv5plugins::TrackClassifier::eventFilter(QObject* watched,
   {
     QKeyEvent* event = static_cast<QKeyEvent*>(e);
 
-    if (event->key() == Qt::Key_Delete && m_point2)
+    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Control ) && m_point2)
       classifyObjects();
 
     if (event->key() == Qt::Key_Escape)
@@ -598,7 +598,10 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(int
           {
             std::map<int, te::gm::Geometry*>::iterator it = m_polyGeomMap.find(resultsPolyTree[t]);
 
-            bool covers = it->second->covers(guestPoint);
+            bool covers = false;
+
+            if (it->second->isValid())
+              covers = it->second->covers(guestPoint);
 
             if (covers)
             {
@@ -666,21 +669,24 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(int
 
         std::map<int, te::da::ObjectId*>::iterator itObjId = m_centroidObjIdMap.find(resultsTree[t]);
 
-        pCandidate = getPoint(it->second);
-
-        pCandidate->setSRID(srid);
-
-        if (rootPoint->getX() != pCandidate->getX() || rootPoint->getY() != pCandidate->getY())
+        if (!isClassified(itObjId->second))
         {
-          //check for lower distance from guest point
-          double dist = std::abs(guestPoint->distance(pCandidate));
+          pCandidate = getPoint(it->second);
 
-          if (dist < lowerDistance)
+          pCandidate->setSRID(srid);
+
+          if (rootPoint->getX() != pCandidate->getX() || rootPoint->getY() != pCandidate->getY())
           {
-            lowerDistance = dist;
-            newCandidate = pCandidate;
-            newObjIdCandidate = itObjId->second;
-            found = true;
+            //check for lower distance from guest point
+            double dist = std::abs(guestPoint->distance(pCandidate));
+
+            if (dist < lowerDistance)
+            {
+              lowerDistance = dist;
+              newCandidate = pCandidate;
+              newObjIdCandidate = itObjId->second;
+              found = true;
+            }
           }
         }
       }
@@ -744,12 +750,7 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(int
     ++it;
   }
 
-  if (!lineBuffer->isValid())
-  {
-    int a = 0;
-  }
-    
-  return lineBuffer->buffer(DISTANCE_BUFFER, 1000, te::gm::CapButtType);
+  return lineBuffer->buffer(DISTANCE_BUFFER, 16, te::gm::CapButtType);
 }
 
 void te::qt::plugins::tv5plugins::TrackClassifier::getTrackInfo(double& distance, double& dx, double& dy)
@@ -1121,4 +1122,32 @@ void te::qt::plugins::tv5plugins::TrackClassifier::getStartIdValue()
   }
 
   ++m_starterId;
+}
+
+bool te::qt::plugins::tv5plugins::TrackClassifier::isClassified(te::da::ObjectId* objId)
+{
+  if (!m_coordLayer.get())
+    throw;
+
+  std::auto_ptr<te::da::DataSetType> schema = m_coordLayer->getSchema();
+
+  te::da::ObjectIdSet* objIdSet;
+
+  te::da::GetEmptyOIDSet(schema.get(), objIdSet);
+
+  objIdSet->add(objId);
+
+  std::auto_ptr<te::da::DataSet> ds = m_coordLayer->getData(objIdSet);
+
+  if (!ds->isEmpty())
+  {
+    ds->moveFirst();
+
+    std::string classValue = ds->getString("type");
+
+    if (classValue != "UNKNOWN" && classValue != "CREATED")
+      return true;
+  }
+
+  return false;
 }

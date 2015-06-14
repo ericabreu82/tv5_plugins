@@ -107,6 +107,8 @@ namespace te
 
           void getStartIdValue();
 
+          void cancelOperation();
+
         private:
 
           te::map::AbstractLayerPtr m_coordLayer;         //!<The layer that will be classified.

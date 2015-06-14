@@ -120,6 +120,8 @@ namespace te
 
           void getStartIdValue();
 
+          bool isClassified(te::da::ObjectId* objId);
+
         private:
 
           te::map::AbstractLayerPtr m_coordLayer;         //!<The layer that will be classified.
