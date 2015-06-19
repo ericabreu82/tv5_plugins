@@ -1,0 +1,49 @@
+===========================================================================
+Tool: Eraser
+
+Comportamento: Ferramenta para remoção de mudas. Utilize o mouse para selecionar
+as mudas desejadas para remoção. Ao clicar sobre uma muda selecionada, essa não estará
+mais selecionada.
+
+Ação: Apertando o botão do teclado "ENTER" ou "CTRL" as mudas selecionadas serão removidas.
+
+Ação 2: Apertando o botão do teclado "ESC" é limpo os pontos selecionados.
+
+===========================================================================
+Tool: Creator
+
+Comportamento: Ferramenta para adicao de mudas. Utilize o mouse para selecionar
+os locais desejados para a criação de mudas. 
+
+Ação: Apertando o botão do teclado "ENTER" ou "CTRL" os locais selecionados serão adicionados como mudas.
+
+Ação 2: Apertando o botão do teclado "ESC" é limpo os pontos selecionados.
+
+============================================================================
+Tool: Track Classifier
+
+Comportamento: Ferramenta para classificação de mudas em uma trilha.
+Selecionando 3 pontos de uma trilha, um buffer será gerado sobre a trilha detectada.
+  - Ponto 1 e 2 - definem a distancia
+  - Ponto 1 e 3 - definem a direcao
+
+Ação: Apertando o botão do teclado "ENTER" ou "CTRL" as mudas dentro do buffer serao classificadas.
+
+Ação 2: Apertando o botão do teclado "ESC" é limpo as mudas e trilha detectada, permitindo
+uma nova seleção de mudas.
+
+============================================================================
+Tool: Track Auto Classifier
+
+Comportamento: Ferramenta para classificação de mudas em uma trilha.
+Selecionando 3 pontos de uma trilha, um buffer será gerado sobre a trilha detectada. Apos a primeira vez
+apenas um ponto precisara ser selecionado.
+  - Ponto 1, 2 e 3 - definem a direcao
+
+Ação: Apertando o botão do teclado "ENTER" ou "CTRL" as mudas dentro do buffer serao classificadas.
+removidas.
+
+Ação 2: Apertando o botão do teclado "ESC" é limpo as mudas e trilha detectada, permitindo
+uma nova seleção de mudas.
+
+Açao 3: Apertando o botao do teclado "BACKSPACE" é permitido a definição dos 3 pontos novamente (em caso de mudar de talhao).
