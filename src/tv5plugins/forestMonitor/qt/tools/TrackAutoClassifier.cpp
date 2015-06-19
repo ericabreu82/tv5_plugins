@@ -13,7 +13,7 @@ or (at your option) any later version.
 */
 
 /*!
-\file terraview5plugins/src/tv5plugins/forestMonitor/qt/tools/TrackClassifier.cpp
+\file terraview5plugins/src/tv5plugins/forestMonitor/qt/tools/TrackAutoClassifier.cpp
 
 \brief This class implements a concrete tool to track classifier
 */
@@ -39,7 +39,7 @@ or (at your option) any later version.
 #include <terralib/se/Utils.h>
 #include <terralib/qt/widgets/canvas/Canvas.h>
 #include <terralib/qt/widgets/canvas/MapDisplay.h>
-#include "TrackClassifier.h"
+#include "TrackAutoClassifier.h"
 
 // Qt
 #include <QApplication>
@@ -51,11 +51,12 @@ or (at your option) any later version.
 #include <cassert>
 #include <memory>
 
+#define DISTANCE 2.0
 #define DISTANCE_BUFFER 1.5
 #define TOLERANCE_FACTOR 0.5
 #define ANGLE_TOL 20
 
-te::qt::plugins::tv5plugins::TrackClassifier::TrackClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr polyLayer, QObject* parent)
+te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr polyLayer, QObject* parent)
   : AbstractTool(display, parent),
   m_coordLayer(coordLayer),
   m_parcelLayer(parcelLayer),
@@ -70,6 +71,13 @@ te::qt::plugins::tv5plugins::TrackClassifier::TrackClassifier(te::qt::widgets::M
   m_objId2(0),
   m_starterId(0)
 {
+  m_distLineEdit = 0;
+  m_dxLineEdit = 0;
+  m_dyLineEdit = 0;
+
+  m_sameParcel = false;
+  m_classify = false;
+
   setCursor(cursor);
   
   display->setFocus();
@@ -79,7 +87,7 @@ te::qt::plugins::tv5plugins::TrackClassifier::TrackClassifier(te::qt::widgets::M
   getStartIdValue();
 }
 
-te::qt::plugins::tv5plugins::TrackClassifier::~TrackClassifier()
+te::qt::plugins::tv5plugins::TrackAutoClassifier::~TrackAutoClassifier()
 {
   QPixmap* draft = m_display->getDraftPixmap();
   draft->fill(Qt::transparent);
@@ -98,7 +106,14 @@ te::qt::plugins::tv5plugins::TrackClassifier::~TrackClassifier()
   delete m_point2;
 }
 
-bool te::qt::plugins::tv5plugins::TrackClassifier::eventFilter(QObject* watched, QEvent* e)
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::setLineEditComponents(QLineEdit* dist, QLineEdit* dx, QLineEdit* dy)
+{
+  m_distLineEdit = dist;
+  m_dxLineEdit = dx;
+  m_dyLineEdit = dy;
+}
+
+bool te::qt::plugins::tv5plugins::TrackAutoClassifier::eventFilter(QObject* watched, QEvent* e)
 {
   if (e->type() == QEvent::MouseButtonRelease)
   {
@@ -115,11 +130,14 @@ bool te::qt::plugins::tv5plugins::TrackClassifier::eventFilter(QObject* watched,
   {
     QKeyEvent* event = static_cast<QKeyEvent*>(e);
 
-    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Control ) && m_point2)
+    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Control) && m_classify && m_point0)
       classifyObjects();
 
     if (event->key() == Qt::Key_Escape)
-      cancelOperation();
+      cancelOperation(false);
+
+    if (event->key() == Qt::Key_Backspace)
+      cancelOperation(true);
 
     return true;
   }
@@ -127,7 +145,7 @@ bool te::qt::plugins::tv5plugins::TrackClassifier::eventFilter(QObject* watched,
   return false;
 }
 
-void te::qt::plugins::tv5plugins::TrackClassifier::selectObjects(QMouseEvent* e)
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::selectObjects(QMouseEvent* e)
 {
   if (!m_coordLayer.get())
     return;
@@ -223,7 +241,7 @@ void te::qt::plugins::tv5plugins::TrackClassifier::selectObjects(QMouseEvent* e)
   m_display->repaint();
 }
 
-void te::qt::plugins::tv5plugins::TrackClassifier::classifyObjects()
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::classifyObjects()
 {
   if (!m_coordLayer.get())
     return;
@@ -346,6 +364,8 @@ void te::qt::plugins::tv5plugins::TrackClassifier::classifyObjects()
   delete m_objId2;
   m_objId2 = 0;
 
+  m_classify = true;
+
   createRTree();
 
   m_dataSet.reset();
@@ -354,7 +374,7 @@ void te::qt::plugins::tv5plugins::TrackClassifier::classifyObjects()
   m_display->refresh();
 }
 
-void te::qt::plugins::tv5plugins::TrackClassifier::cancelOperation()
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::cancelOperation(bool restart)
 {
   // Clear draft!
   QPixmap* draft = m_display->getDraftPixmap();
@@ -375,6 +395,17 @@ void te::qt::plugins::tv5plugins::TrackClassifier::cancelOperation()
   delete m_objId2;
   m_objId2 = 0;
 
+  if (restart)
+  {
+    m_classify = false;
+    m_dxLineEdit->clear();
+    m_dyLineEdit->clear();
+  }
+  else
+  {
+    m_classify = true;
+  }
+  
   m_dataSet.reset();
 
   std::auto_ptr<te::da::DataSetType> schema = m_coordLayer->getSchema();
@@ -385,7 +416,7 @@ void te::qt::plugins::tv5plugins::TrackClassifier::cancelOperation()
   m_display->repaint();
 }
 
-void te::qt::plugins::tv5plugins::TrackClassifier::drawSelecteds()
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::drawSelecteds()
 {
   if (!m_coordLayer.get())
     return;
@@ -441,7 +472,7 @@ void te::qt::plugins::tv5plugins::TrackClassifier::drawSelecteds()
     if (m_point2)
       canvas.draw(m_point2);
 
-    if (m_point2)
+    if ((m_classify && m_point0 )|| m_point2)
     {
       delete m_buffer;
 
@@ -476,7 +507,7 @@ void te::qt::plugins::tv5plugins::TrackClassifier::drawSelecteds()
   }
 }
 
-te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track)
+te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer(int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track)
 {
   std::auto_ptr<te::da::DataSetType> schema = m_coordLayer->getSchema();
 
@@ -753,19 +784,40 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackClassifier::createBuffer(int
   return lineBuffer->buffer(DISTANCE_BUFFER, 16, te::gm::CapButtType);
 }
 
-void te::qt::plugins::tv5plugins::TrackClassifier::getTrackInfo(double& distance, double& dx, double& dy)
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::getTrackInfo(double& distance, double& dx, double& dy)
 {
-  distance = m_point0->distance(m_point1);
-  double bigDistance = m_point0->distance(m_point2);
+  if (m_distLineEdit->text().isEmpty())
+    distance = DISTANCE;
+  else
+    distance = m_distLineEdit->text().toDouble();
+  
+  if (m_point2)
+  {
+    double d = m_point0->distance(m_point1);
+    double bigDistance = m_point0->distance(m_point2);
 
-  double big_dx = m_point2->getX() - m_point0->getX();
-  double big_dy = m_point2->getY() - m_point0->getY();
+    double big_dx = m_point2->getX() - m_point0->getX();
+    double big_dy = m_point2->getY() - m_point0->getY();
 
-  dx = distance * big_dx / bigDistance;
-  dy = distance * big_dy / bigDistance;
+    dx = d * big_dx / bigDistance;
+    dy = d * big_dy / bigDistance;
+
+    if (m_dxLineEdit)
+      m_dxLineEdit->setText(QString::number(dx));
+
+    if (m_dyLineEdit)
+      m_dyLineEdit->setText(QString::number(dy));
+  }
+  else
+  {
+    dx = m_dxLineEdit->text().toDouble();
+    dy = m_dyLineEdit->text().toDouble();
+  }
+
+  m_classify = true;
 }
 
-std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackClassifier::getParcelGeeom(te::gm::Geometry* root, int& parcelId)
+std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackAutoClassifier::getParcelGeeom(te::gm::Geometry* root, int& parcelId)
 {
   if (!m_parcelLayer.get())
     throw;
@@ -819,12 +871,12 @@ std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackClassifier::ge
   return g;
 }
 
-te::gm::Point* te::qt::plugins::tv5plugins::TrackClassifier::createGuessPoint(te::gm::Point* p, double dx, double dy, int srid)
+te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::createGuessPoint(te::gm::Point* p, double dx, double dy, int srid)
 {
   return new te::gm::Point(p->getX() + dx, p->getY() + dy, srid);
 }
 
-te::da::ObjectIdSet* te::qt::plugins::tv5plugins::TrackClassifier::getBufferObjIdSet()
+te::da::ObjectIdSet* te::qt::plugins::tv5plugins::TrackAutoClassifier::getBufferObjIdSet()
 {
   // Bulding the query box
   te::gm::Envelope envelope(*m_buffer->getMBR());
@@ -886,7 +938,7 @@ te::da::ObjectIdSet* te::qt::plugins::tv5plugins::TrackClassifier::getBufferObjI
   return oids;
 }
 
-void te::qt::plugins::tv5plugins::TrackClassifier::getClassDataSets(te::da::DataSetType* dsType, te::mem::DataSet*& liveDataSet, te::mem::DataSet*& intruderDataSet)
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::getClassDataSets(te::da::DataSetType* dsType, te::mem::DataSet*& liveDataSet, te::mem::DataSet*& intruderDataSet)
 {
   // Bulding the query box
   te::gm::Envelope envelope(*m_buffer->getMBR());
@@ -1001,7 +1053,7 @@ void te::qt::plugins::tv5plugins::TrackClassifier::getClassDataSets(te::da::Data
   }
 }
 
-void te::qt::plugins::tv5plugins::TrackClassifier::createRTree()
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::createRTree()
 {
   QApplication::setOverrideCursor(Qt::WaitCursor);
 
@@ -1083,7 +1135,7 @@ void te::qt::plugins::tv5plugins::TrackClassifier::createRTree()
   QApplication::restoreOverrideCursor();
 }
 
-te::gm::Point* te::qt::plugins::tv5plugins::TrackClassifier::getPoint(te::gm::Geometry* g)
+te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::getPoint(te::gm::Geometry* g)
 {
   te::gm::Point* point = 0;
 
@@ -1100,7 +1152,7 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackClassifier::getPoint(te::gm::Ge
   return point;
 }
 
-void te::qt::plugins::tv5plugins::TrackClassifier::getStartIdValue()
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::getStartIdValue()
 {
   if (!m_coordLayer.get())
     throw;
@@ -1124,7 +1176,7 @@ void te::qt::plugins::tv5plugins::TrackClassifier::getStartIdValue()
   ++m_starterId;
 }
 
-bool te::qt::plugins::tv5plugins::TrackClassifier::isClassified(te::da::ObjectId* objId)
+bool te::qt::plugins::tv5plugins::TrackAutoClassifier::isClassified(te::da::ObjectId* objId)
 {
   if (!m_coordLayer.get())
     throw;
