@@ -52,6 +52,8 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDia
   connect(m_ui->m_trackAutoClassifierToolButton, SIGNAL(toggled(bool)), this, SLOT(onTrackAutoClassifierToolButtonClicked(bool)));
 
   m_ui->m_distLineEdit->setValidator(new QDoubleValidator(this));
+  m_ui->m_distTolLineEdit->setValidator(new QDoubleValidator(this));
+  m_ui->m_distBufferLineEdit->setValidator(new QDoubleValidator(this));
 }
 
 te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::~ForestMonitorToolBarDialog()
@@ -178,6 +180,6 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackAutoClassif
   QCursor cursor(pxmap, 0, 0);
 
   te::qt::plugins::tv5plugins::TrackAutoClassifier* tool = new te::qt::plugins::tv5plugins::TrackAutoClassifier(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, layerPoly);
-  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_dxLineEdit, m_ui->m_dyLineEdit);
+  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distBufferLineEdit, m_ui->m_distTolLineEdit);
   m_appDisplay->setCurrentTool(tool);
 }

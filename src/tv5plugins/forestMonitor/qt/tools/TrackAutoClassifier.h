@@ -84,7 +84,7 @@ namespace te
           /*! \brief Destructor. */
           ~TrackAutoClassifier();
 
-          void setLineEditComponents(QLineEdit* dist, QLineEdit* dx, QLineEdit* dy);
+          void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit);
 
           //@}
 
@@ -107,17 +107,15 @@ namespace te
 
           void drawSelecteds();
 
-          te::gm::Geometry* createBuffer(int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track);
+          te::gm::Geometry* createBuffer(te::gm::Point* rootPoint, te::da::ObjectId* objIdRoot, int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track);
 
-          void getTrackInfo(double& distance, double& dx, double& dy);
+          void getTrackInfo();
 
           std::auto_ptr<te::gm::Geometry> getParcelGeeom(te::gm::Geometry* root, int& parcelId);
 
           te::gm::Point* createGuessPoint(te::gm::Point* p, double dx, double dy, int srid);
 
-          te::da::ObjectIdSet* getBufferObjIdSet();
-
-          void getClassDataSets(te::da::DataSetType* dsType, te::mem::DataSet*& liveDataSet, te::mem::DataSet*& intruderDataSet);
+          void getClassDataSets(te::da::DataSetType* dsType, te::mem::DataSet*& liveDataSet, te::mem::DataSet*& intruderDataSet, te::gm::Geometry* buffer);
 
           void createRTree();
 
@@ -152,18 +150,22 @@ namespace te
           te::gm::Point* m_point1;
           te::da::ObjectId* m_objId1;
 
-          te::gm::Geometry* m_buffer;
           te::da::ObjectIdSet* m_track;
+
+          te::da::ObjectIdSet* m_roots;
 
           std::auto_ptr<te::mem::DataSet> m_dataSet;
 
           int m_starterId;
 
           QLineEdit* m_distLineEdit;
-          QLineEdit* m_dxLineEdit;
-          QLineEdit* m_dyLineEdit;
+          QLineEdit* m_distanceBufferLineEdit;
+          QLineEdit* m_distanceToleranceFactorLineEdit;
 
-          bool m_sameParcel;
+          double m_dx;
+          double m_dy;
+          double m_distance;
+
           bool m_classify;
         };
 

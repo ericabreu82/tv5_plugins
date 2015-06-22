@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>532</width>
+    <width>603</width>
     <height>100</height>
    </rect>
   </property>
@@ -14,6 +14,9 @@
    <string>Forest Monitor Tool Bar Dialog</string>
   </property>
   <layout class="QGridLayout" name="gridLayout_3">
+   <property name="sizeConstraint">
+    <enum>QLayout::SetFixedSize</enum>
+   </property>
    <property name="leftMargin">
     <number>0</number>
    </property>
@@ -169,7 +172,7 @@
               <item row="1" column="0">
                <widget class="QLabel" name="m_dx">
                 <property name="text">
-                 <string>DX:</string>
+                 <string>Distance Tolerance (%):</string>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -179,7 +182,7 @@
               <item row="2" column="0">
                <widget class="QLabel" name="m_dy">
                 <property name="text">
-                 <string>DY:</string>
+                 <string>Distance Buffer:</string>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -207,28 +210,40 @@
                </widget>
               </item>
               <item row="1" column="0">
-               <widget class="QLineEdit" name="m_dxLineEdit">
+               <widget class="QLineEdit" name="m_distTolLineEdit">
                 <property name="enabled">
-                 <bool>false</bool>
+                 <bool>true</bool>
                 </property>
                 <property name="maximumSize">
                  <size>
                   <width>50</width>
                   <height>16777215</height>
                  </size>
+                </property>
+                <property name="text">
+                 <string>0.2</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                 </property>
                </widget>
               </item>
               <item row="2" column="0">
-               <widget class="QLineEdit" name="m_dyLineEdit">
+               <widget class="QLineEdit" name="m_distBufferLineEdit">
                 <property name="enabled">
-                 <bool>false</bool>
+                 <bool>true</bool>
                 </property>
                 <property name="maximumSize">
                  <size>
                   <width>50</width>
                   <height>16777215</height>
                  </size>
+                </property>
+                <property name="text">
+                 <string>1.5</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                 </property>
                </widget>
               </item>
@@ -269,43 +284,10 @@
   <tabstop>m_trackClassifierToolButton</tabstop>
   <tabstop>m_creatorToolButton</tabstop>
   <tabstop>m_distLineEdit</tabstop>
-  <tabstop>m_dxLineEdit</tabstop>
-  <tabstop>m_dyLineEdit</tabstop>
+  <tabstop>m_distTolLineEdit</tabstop>
+  <tabstop>m_distBufferLineEdit</tabstop>
   <tabstop>m_trackAutoClassifierToolButton</tabstop>
  </tabstops>
  <resources/>
- <connections>
-  <connection>
-   <sender>m_trackAutoClassifierToolButton</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>m_dyLineEdit</receiver>
-   <slot>clear()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>500</x>
-     <y>47</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>479</x>
-     <y>75</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>m_trackAutoClassifierToolButton</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>m_dxLineEdit</receiver>
-   <slot>clear()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>513</x>
-     <y>49</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>470</x>
-     <y>53</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>
