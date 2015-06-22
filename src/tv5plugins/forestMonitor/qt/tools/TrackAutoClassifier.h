@@ -127,13 +127,17 @@ namespace te
 
           bool isClassified(te::da::ObjectId* objId);
 
+          void addGuessPoint(te::gm::Point* p, int parcelId);
+
+          te::gm::Point* getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId);
+
+          std::auto_ptr<te::da::DataSetType> createTreeDataSetType();
+
         private:
 
           te::map::AbstractLayerPtr m_coordLayer;         //!<The layer that will be classified.
           te::map::AbstractLayerPtr m_parcelLayer;        //!<The layer with geometry restriction.
           te::map::AbstractLayerPtr m_polyLayer;          //!<The layer with polygons geometry.
-
-          te::da::ObjectIdSet* m_objIdTrackSet;
 
           te::sam::rtree::Index<int> m_polyRtree;
           std::map<int, te::gm::Geometry*> m_polyGeomMap;
@@ -147,9 +151,6 @@ namespace te
 
           te::gm::Point* m_point1;
           te::da::ObjectId* m_objId1;
-
-          te::gm::Point* m_point2;
-          te::da::ObjectId* m_objId2;
 
           te::gm::Geometry* m_buffer;
           te::da::ObjectIdSet* m_track;

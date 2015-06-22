@@ -44,6 +44,7 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDia
   m_ui->m_eraserToolButton->setIcon(QIcon::fromTheme("pointer-remove-selection"));
   m_ui->m_trackClassifierToolButton->setIcon(QIcon::fromTheme("wand"));
   m_ui->m_creatorToolButton->setIcon(QIcon::fromTheme("pointer"));
+  m_ui->m_trackAutoClassifierToolButton->setIcon(QIcon::fromTheme("wand"));
 
   connect(m_ui->m_eraserToolButton, SIGNAL(toggled(bool)), this, SLOT(onEraserToolButtonClicked(bool)));
   connect(m_ui->m_trackClassifierToolButton, SIGNAL(toggled(bool)), this, SLOT(onTrackClassifierToolButtonClicked(bool)));

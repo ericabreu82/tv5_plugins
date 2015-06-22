@@ -52,7 +52,7 @@ or (at your option) any later version.
 #include <memory>
 
 #define DISTANCE_BUFFER 1.5
-#define TOLERANCE_FACTOR 0.5
+#define TOLERANCE_FACTOR 0.2
 #define ANGLE_TOL 20
 
 te::qt::plugins::tv5plugins::TrackClassifier::TrackClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr polyLayer, QObject* parent)
@@ -102,6 +102,8 @@ bool te::qt::plugins::tv5plugins::TrackClassifier::eventFilter(QObject* watched,
 {
   if (e->type() == QEvent::MouseButtonRelease)
   {
+    m_display->setFocus();
+
     QMouseEvent* event = static_cast<QMouseEvent*>(e);
 
     if (event->button() == Qt::LeftButton)
