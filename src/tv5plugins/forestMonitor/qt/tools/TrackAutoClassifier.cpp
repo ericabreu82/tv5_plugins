@@ -56,6 +56,8 @@ or (at your option) any later version.
 #define DISTANCE_BUFFER 1.5
 #define TOLERANCE_FACTOR 0.5
 #define ANGLE_TOL 20
+#define POLY_AREA_MIN 0.1
+#define POLY_AREA_MAX 2.0
 
 te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr polyLayer, QObject* parent)
   : AbstractTool(display, parent),
@@ -107,11 +109,13 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::~TrackAutoClassifier()
   delete m_roots;
 }
 
-void te::qt::plugins::tv5plugins::TrackAutoClassifier::setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit)
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax)
 {
   m_distLineEdit = distLineEdit;
   m_distanceBufferLineEdit = distanceBufferLineEdit;
   m_distanceToleranceFactorLineEdit = distanceToleranceFactorLineEdit;
+  m_polyAreaMin = polyAreaMin;
+  m_polyAreaMax = polyAreaMax;
 }
 
 bool te::qt::plugins::tv5plugins::TrackAutoClassifier::eventFilter(QObject* watched, QEvent* e)
@@ -992,6 +996,27 @@ bool te::qt::plugins::tv5plugins::TrackAutoClassifier::isClassified(te::da::Obje
   if (!m_coordLayer.get())
     throw;
 
+  double polyAreaMin = 0.;
+  double polyAreaMax = 0.;
+
+  if (m_polyAreaMin->text().isEmpty())
+  {
+    polyAreaMin = POLY_AREA_MIN;
+  }
+  else
+  {
+    polyAreaMin = m_polyAreaMin->text().toDouble();
+  }
+
+  if (m_polyAreaMax->text().isEmpty())
+  {
+    polyAreaMax = POLY_AREA_MAX;
+  }
+  else
+  {
+    polyAreaMax = m_polyAreaMax->text().toDouble();
+  }
+
   std::auto_ptr<te::da::DataSetType> schema = m_coordLayer->getSchema();
 
   te::da::ObjectIdSet* objIdSet;
@@ -1014,7 +1039,7 @@ bool te::qt::plugins::tv5plugins::TrackAutoClassifier::isClassified(te::da::Obje
   //get area attribute and check threshold
     double area = ds->getDouble("area");
 
-    if (area <= 0.1 || area >= 2.0)
+    if (area <= polyAreaMin || area >= polyAreaMax)
     {
       return true;
     }
