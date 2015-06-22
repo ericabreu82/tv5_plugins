@@ -54,8 +54,7 @@ or (at your option) any later version.
 
 #define DISTANCE 2.0
 #define DISTANCE_BUFFER 1.5
-#define TOLERANCE_FACTOR 0.5
-#define ANGLE_TOL 20
+#define TOLERANCE_FACTOR 0.2
 #define POLY_AREA_MIN 0.1
 #define POLY_AREA_MAX 2.0
 

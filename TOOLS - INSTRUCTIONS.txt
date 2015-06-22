@@ -35,15 +35,14 @@ uma nova seleção de mudas.
 ============================================================================
 Tool: Track Auto Classifier
 
-Comportamento: Ferramenta para classificação de mudas em uma trilha.
-Selecionando 3 pontos de uma trilha, um buffer será gerado sobre a trilha detectada. Apos a primeira vez
-apenas um ponto precisara ser selecionado.
-  - Ponto 1, 2 e 3 - definem a direcao
+Comportamento: Ferramenta para classificação de mudas em N trilhas.
+Selecionando 2 pontos de uma trilha é definido o deslocamento em X e Y para esse talhao. Apos esses dois pontos o 
+usuario deve selecionar apenas um ponto por trilha. 
+- Pontos desenhados em vermelho - utilizados para calcular DX e DY
+- Pontos desenhados em azul - mudas selecionadas em cada trilha.
 
-Ação: Apertando o botão do teclado "ENTER" ou "CTRL" as mudas dentro do buffer serao classificadas.
-removidas.
+Ação: Apertando o botão do teclado "ENTER" ou "CTRL" todas as trilhas com pontos selecionados serao classificados.
 
-Ação 2: Apertando o botão do teclado "ESC" é limpo as mudas e trilha detectada, permitindo
-uma nova seleção de mudas.
+Ação 2: Apertando o botão do teclado "ESC" é limpo as mudas selecionadas.
 
-Açao 3: Apertando o botao do teclado "BACKSPACE" é permitido a definição dos 3 pontos novamente (em caso de mudar de talhao).
+Açao 3: Apertando o botao do teclado "BACKSPACE" é necessario definir novamente DX e DY para depois selecionar as mudas.
