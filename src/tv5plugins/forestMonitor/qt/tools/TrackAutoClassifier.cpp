@@ -1073,27 +1073,41 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::addGuessPoint(te::gm::Poi
   }
   else
   {
-    //bool found = false;
-    //for (std::size_t t = 0; t < resultsPolyTree.size(); ++t)
-    //{
-    //  std::map<int, te::gm::Geometry*>::iterator it = m_polyGeomMap.find(resultsPolyTree[t]);
+    bool found = false;
+    for (std::size_t t = 0; t < resultsPolyTree.size(); ++t)
+    {
+      std::map<int, te::gm::Geometry*>::iterator it = m_polyGeomMap.find(resultsPolyTree[t]);
 
-    //  bool covers = false;
+      te::gm::Geometry* g = it->second;
 
-    //  if (it->second->isValid())
-    //    covers = it->second->covers(guestPoint);
+      g->setSRID(p->getSRID());
 
-    //  if (covers)
-    //  {
-    //    found = true;
-    //    break;
-    //  }
-    //}
+      bool covers = false;
 
-    //if (found)
-    //  forestType = "LIVE";
-    //else
-    forestType = "LIVE";
+      if (g->isValid())
+      {
+        covers = g->covers(p);
+      }
+      else
+      {
+        if (resultsPolyTree.size() == 1)
+        {
+          found = true;
+          break;
+        }
+      } 
+
+      if (covers)
+      {
+        found = true;
+        break;
+      }
+    }
+
+    if (found)
+      forestType = "LIVE";
+    else
+      forestType = "DEAD";
   }
 
   //create dataset item
