@@ -123,11 +123,11 @@ namespace te
 
           void getStartIdValue();
 
-          bool isClassified(te::da::ObjectId* objId);
+          bool isClassified(te::da::ObjectId* objId, double& area, std::string& classValue);
 
-          void addGuessPoint(te::gm::Point* p, int parcelId);
+          te::gm::Point* calculateGuessPoint(te::gm::Point* p, int parcelId);
 
-          te::gm::Point* getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId);
+          te::gm::Point* getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, std::string& candidateClassValue);
 
           std::auto_ptr<te::da::DataSetType> createTreeDataSetType();
 
@@ -169,6 +169,10 @@ namespace te
           double m_distance;
 
           bool m_classify;
+
+          unsigned int m_maxDead;
+          unsigned int m_deadCount;
+          double m_deltaTol;
         };
 
       } // end namespace tv5plugins

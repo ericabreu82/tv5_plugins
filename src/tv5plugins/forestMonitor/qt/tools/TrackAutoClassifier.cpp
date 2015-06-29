@@ -57,6 +57,8 @@ or (at your option) any later version.
 #define TOLERANCE_FACTOR 0.2
 #define POLY_AREA_MIN 0.1
 #define POLY_AREA_MAX 2.0
+#define MAX_DEAD 6
+#define DELTA_TOL 0.1
 
 te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr polyLayer, QObject* parent)
   : AbstractTool(display, parent),
@@ -78,6 +80,10 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::wi
   m_dx = 0.;
   m_dy = 0.;
   m_distance = DISTANCE;
+
+  m_maxDead = MAX_DEAD;
+  m_deadCount = 0;
+  m_deltaTol = DELTA_TOL;
 
   m_classify = false;
 
@@ -291,76 +297,79 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::classifyObjects()
 
     std::auto_ptr<te::gm::Geometry> buffer(createBuffer(rootPoint, objIdRoot, m_coordLayer->getSRID(), gp->getName(), line, track));
 
-    try
+    if (buffer.get())
     {
-      //create dataset type
-      te::mem::DataSet* liveDS = 0;
-      te::mem::DataSet* intruderDS = 0;
-
-      getClassDataSets(dsType.get(), liveDS, intruderDS, buffer.get());
-
-      //class
-      te::map::DataSetLayer* dsLayer = dynamic_cast<te::map::DataSetLayer*>(m_coordLayer.get());
-
-      if (dsLayer)
+      try
       {
-        te::da::DataSourcePtr dataSource = te::da::GetDataSource(dsLayer->getDataSourceId());
+        //create dataset type
+        te::mem::DataSet* liveDS = 0;
+        te::mem::DataSet* intruderDS = 0;
 
-        //update live dataset
-        std::vector<size_t> ids;
-        ids.push_back(0);
+        getClassDataSets(dsType.get(), liveDS, intruderDS, buffer.get());
 
-        if (liveDS)
+        //class
+        te::map::DataSetLayer* dsLayer = dynamic_cast<te::map::DataSetLayer*>(m_coordLayer.get());
+
+        if (dsLayer)
         {
-          std::vector< std::set<int> > properties;
-          std::size_t dsSize = liveDS->size();
+          te::da::DataSourcePtr dataSource = te::da::GetDataSource(dsLayer->getDataSourceId());
 
-          for (std::size_t t = 0; t < dsSize; ++t)
+          //update live dataset
+          std::vector<size_t> ids;
+          ids.push_back(0);
+
+          if (liveDS)
           {
-            std::set<int> setPos;
-            setPos.insert(4);
+            std::vector< std::set<int> > properties;
+            std::size_t dsSize = liveDS->size();
 
-            properties.push_back(setPos);
+            for (std::size_t t = 0; t < dsSize; ++t)
+            {
+              std::set<int> setPos;
+              setPos.insert(4);
+
+              properties.push_back(setPos);
+            }
+
+            dataSource->update(dsType->getName(), liveDS, properties, ids);
           }
 
-          dataSource->update(dsType->getName(), liveDS, properties, ids);
-        }
-
-        //update intruder dataset
-        if (intruderDS)
-        {
-          std::vector< std::set<int> > properties;
-          std::size_t dsSize = intruderDS->size();
-
-          for (std::size_t t = 0; t < dsSize; ++t)
+          //update intruder dataset
+          if (intruderDS)
           {
-            std::set<int> setPos;
-            setPos.insert(4);
+            std::vector< std::set<int> > properties;
+            std::size_t dsSize = intruderDS->size();
 
-            properties.push_back(setPos);
+            for (std::size_t t = 0; t < dsSize; ++t)
+            {
+              std::set<int> setPos;
+              setPos.insert(4);
+
+              properties.push_back(setPos);
+            }
+
+            dataSource->update(dsType->getName(), intruderDS, properties, ids);
           }
 
-          dataSource->update(dsType->getName(), intruderDS, properties, ids);
-        }
+          //add dead dataset
+          if (m_dataSet.get())
+          {
+            std::map<std::string, std::string> options;
 
-        //add dead dataset
-        if (m_dataSet.get())
-        {
-          std::map<std::string, std::string> options;
-
-          dataSource->add(dsType->getName(), m_dataSet.get(), options);
+            dataSource->add(dsType->getName(), m_dataSet.get(), options);
+          }
         }
       }
-    }
-    catch (std::exception& e)
-    {
-      QApplication::restoreOverrideCursor();
+      catch (std::exception& e)
+      {
+        QApplication::restoreOverrideCursor();
 
-      QMessageBox::critical(m_display, tr("Error"), QString(tr("Error classifying track. Details:") + " %1.").arg(e.what()));
-      break;
-    }
+        QMessageBox::critical(m_display, tr("Error"), QString(tr("Error classifying track. Details:") + " %1.").arg(e.what()));
+        break;
+      }
 
-    task.pulse();
+      task.pulse();
+    }
   }
 
   QApplication::restoreOverrideCursor();
@@ -527,25 +536,31 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
   double dx = m_dx;
   double dy = m_dy;
 
-  double toleranceFactor = 0.;
-
-  if (m_distanceToleranceFactorLineEdit->text().isEmpty())
-  {
-    toleranceFactor = TOLERANCE_FACTOR;
-  }
-  else
-  {
-    toleranceFactor = m_distanceToleranceFactorLineEdit->text().toDouble();
-  }
+  m_deadCount = 0;
 
   while (insideParcel)
   {
     //te::gm::Point* guestPoint = createGuessPoint(rootPoint, distance, angle, srid);
 
     te::gm::Point* guestPoint = createGuessPoint(rootPoint, dx, dy, srid);
-    
+
     //create envelope to find if guest point exist
     te::gm::Envelope ext(guestPoint->getX(), guestPoint->getY(), guestPoint->getX(), guestPoint->getY());
+
+    //tol=tolerancia+n*deltatol
+    double toleranceFactor = 0.;
+
+    if (m_distanceToleranceFactorLineEdit->text().isEmpty())
+    {
+      toleranceFactor = TOLERANCE_FACTOR;
+    }
+    else
+    {
+      toleranceFactor = m_distanceToleranceFactorLineEdit->text().toDouble();
+    }
+
+    //adjust tolerance for dead trees
+    toleranceFactor = toleranceFactor + (m_deadCount * m_deltaTol);
 
     ext.m_llx -= (m_distance * toleranceFactor);
     ext.m_lly -= (m_distance * toleranceFactor);
@@ -566,16 +581,21 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
 
       if (insideParcel)
       {
-        if (!invert)
-        {
-          track.push_back(new te::gm::Point(*rootPoint));
-        }
-        else
-        {
-          track.push_front(new te::gm::Point(*rootPoint));
-        }
+        te::gm::Point* pGuessCalculated = calculateGuessPoint(rootPoint, parcelId);
 
-        addGuessPoint(rootPoint, parcelId);
+        if (pGuessCalculated)
+        {
+          rootPoint = pGuessCalculated;
+
+          if (!invert)
+          {
+            track.push_back(new te::gm::Point(*rootPoint));
+          }
+          else
+          {
+            track.push_front(new te::gm::Point(*rootPoint));
+          }
+        }
       }
       else
       {
@@ -586,26 +606,30 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
           dx = dx * -1;
           dy = dy * -1;
           rootPoint = starter;
+          m_deadCount = 0;
         }
       }
-       
+
     }
     else
     {
       //live point
       te::da::ObjectId* objIdCandidate = 0;
-      te::gm::Point* pCandidate = getCandidatePoint(rootPoint, guestPoint, srid, resultsTree, objIdCandidate);
+      std::string candidateClassValue = "";
+      te::gm::Point* pCandidate = getCandidatePoint(rootPoint, guestPoint, srid, resultsTree, objIdCandidate, candidateClassValue);
 
       if (!pCandidate)
       {
-        rootPoint = guestPoint;
+        te::gm::Point* pGuessCalculated = calculateGuessPoint(guestPoint, parcelId);
 
-        addGuessPoint(rootPoint, parcelId);
+        rootPoint = pGuessCalculated;
       }
       else
       {
         rootPoint = pCandidate;
         m_track->add(objIdCandidate);
+
+        m_deadCount = 0;
       }
 
       insideParcel = parcelGeom->covers(rootPoint);
@@ -630,7 +654,25 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
           dx = dx * -1;
           dy = dy * -1;
           rootPoint = starter;
+          m_deadCount = 0;
         }
+      }
+    }
+
+    if (m_deadCount >= m_maxDead)
+    {
+      if (!invert)
+      {
+        invert = true;
+        insideParcel = true;
+        dx = dx * -1;
+        dy = dy * -1;
+        rootPoint = starter;
+        m_deadCount = 0;
+      }
+      else
+      {
+        break;
       }
     }
   }
@@ -990,10 +1032,198 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::getStartIdValue()
   ++m_starterId;
 }
 
-bool te::qt::plugins::tv5plugins::TrackAutoClassifier::isClassified(te::da::ObjectId* objId)
+bool te::qt::plugins::tv5plugins::TrackAutoClassifier::isClassified(te::da::ObjectId* objId, double& area, std::string& classValue)
 {
   if (!m_coordLayer.get())
     throw;
+
+  std::auto_ptr<te::da::DataSetType> schema = m_coordLayer->getSchema();
+
+  te::da::ObjectIdSet* objIdSet;
+
+  te::da::GetEmptyOIDSet(schema.get(), objIdSet);
+
+  objIdSet->add(objId);
+
+  std::auto_ptr<te::da::DataSet> ds = m_coordLayer->getData(objIdSet);
+
+  if (!ds->isEmpty())
+  {
+    ds->moveFirst();
+
+    classValue = ds->getString("type");
+
+    if (classValue == "CREATED")
+      return false;
+
+    if (classValue == "UNKNOWN")
+    {
+      //get area attribute and check threshold
+      area = ds->getDouble("area");
+
+      return false;
+    }
+  }
+
+  return true;
+}
+
+te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::calculateGuessPoint(te::gm::Point* p, int parcelId)
+{
+  if (!m_dataSet.get())
+  {
+    std::auto_ptr<te::da::DataSetType> dsType = m_coordLayer->getSchema();
+
+    //create dataset type
+    std::auto_ptr<te::da::DataSetType> dataSetType = createTreeDataSetType();
+
+    m_dataSet.reset(new te::mem::DataSet(dataSetType.get()));
+  }
+
+  double toleranceFactor = 0.;
+
+  if (m_distanceToleranceFactorLineEdit->text().isEmpty())
+  {
+    toleranceFactor = TOLERANCE_FACTOR;
+  }
+  else
+  {
+    toleranceFactor = m_distanceToleranceFactorLineEdit->text().toDouble();
+  }
+
+  std::string forestType = "UNKNOWN";
+
+  te::gm::Envelope extPoint(p->getX(), p->getY(), p->getX(), p->getY());
+
+  extPoint.m_llx -= (m_dx * toleranceFactor);
+  extPoint.m_lly -= (m_dy * toleranceFactor);
+  extPoint.m_urx += (m_dx * toleranceFactor);
+  extPoint.m_ury += (m_dy * toleranceFactor);
+
+  std::vector<int> resultsPolyTree;
+
+  m_polyRtree.search(extPoint, resultsPolyTree);
+
+  te::gm::Point* pGuessCalculated = 0;
+
+  if (resultsPolyTree.empty())
+  {
+    forestType = "DEAD";
+
+    ++m_deadCount;
+
+    pGuessCalculated = p;
+  }
+  else
+  {
+    bool found = false;
+
+    for (std::size_t t = 0; t < resultsPolyTree.size(); ++t)
+    {
+      std::map<int, te::gm::Geometry*>::iterator it = m_polyGeomMap.find(resultsPolyTree[t]);
+
+      te::gm::Geometry* g = it->second;
+
+      g->setSRID(p->getSRID());
+
+      bool covers = false;
+
+      if (g->isValid())
+      {
+        //try guess point
+        covers = g->covers(p);
+
+        if (covers)
+        {
+          found = true;
+
+          pGuessCalculated = p;
+
+          break;
+        }
+
+        //try guess point 1
+        std::auto_ptr<te::gm::Point> p1(new te::gm::Point(p->getX() - (m_dy * toleranceFactor), p->getY() + (m_dx * toleranceFactor), p->getSRID()));
+
+        covers = g->covers(p1.get());
+
+        if (covers)
+        {
+          found = true;
+
+          pGuessCalculated = p1.release();
+
+          break;
+        }
+
+        //try guess point 2
+        std::auto_ptr<te::gm::Point> p2(new te::gm::Point(p->getX() + (m_dy * toleranceFactor), p->getY() - (m_dx * toleranceFactor), p->getSRID()));
+
+        covers = g->covers(p2.get());
+
+        if (covers)
+        {
+          found = true;
+
+          pGuessCalculated = p2.release();
+
+          break;
+        }
+      }
+      else
+      {
+        found = true;
+
+        pGuessCalculated = p;
+
+        break;
+      } 
+    }
+
+    if (found)
+    {
+      forestType = "LIVE";
+
+      m_deadCount = 0;
+    }
+    else
+    {
+      forestType = "DEAD";
+
+      ++m_deadCount;
+
+      pGuessCalculated = p;
+    }
+  }
+
+  //create dataset item
+  te::mem::DataSetItem* item = new te::mem::DataSetItem(m_dataSet.get());
+
+  //set id
+  item->setInt32(0, m_starterId);
+
+  //set origin id
+  item->setInt32(1, parcelId);
+
+  //set area
+  item->setDouble(2, 0.);
+
+  //forest type
+  item->setString(3, forestType);
+
+  //set geometry
+  item->setGeometry(4, new te::gm::Point(*pGuessCalculated));
+
+  m_dataSet->add(item);
+
+  ++m_starterId;
+
+  return pGuessCalculated;
+}
+
+te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, std::string& candidateClassValue)
+{
+  double lowerDistance = std::numeric_limits<double>::max();
 
   double polyAreaMin = 0.;
   double polyAreaMax = 0.;
@@ -1016,127 +1246,6 @@ bool te::qt::plugins::tv5plugins::TrackAutoClassifier::isClassified(te::da::Obje
     polyAreaMax = m_polyAreaMax->text().toDouble();
   }
 
-  std::auto_ptr<te::da::DataSetType> schema = m_coordLayer->getSchema();
-
-  te::da::ObjectIdSet* objIdSet;
-
-  te::da::GetEmptyOIDSet(schema.get(), objIdSet);
-
-  objIdSet->add(objId);
-
-  std::auto_ptr<te::da::DataSet> ds = m_coordLayer->getData(objIdSet);
-
-  if (!ds->isEmpty())
-  {
-    ds->moveFirst();
-
-    std::string classValue = ds->getString("type");
-
-  if (classValue != "UNKNOWN" && classValue != "CREATED")
-      return true;
-
-  //get area attribute and check threshold
-    double area = ds->getDouble("area");
-
-    if (area <= polyAreaMin || area >= polyAreaMax)
-    {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-void te::qt::plugins::tv5plugins::TrackAutoClassifier::addGuessPoint(te::gm::Point* p, int parcelId)
-{
-  if (!m_dataSet.get())
-  {
-    std::auto_ptr<te::da::DataSetType> dsType = m_coordLayer->getSchema();
-
-    //create dataset type
-    std::auto_ptr<te::da::DataSetType> dataSetType = createTreeDataSetType();
-
-    m_dataSet.reset(new te::mem::DataSet(dataSetType.get()));
-  }
-
-  std::string forestType = "UNKNOWN";
-
-  te::gm::Envelope extPoint(p->getX(), p->getY(), p->getX(), p->getY());
-
-  std::vector<int> resultsPolyTree;
-
-  m_polyRtree.search(extPoint, resultsPolyTree);
-
-  if (resultsPolyTree.empty())
-  {
-    forestType = "DEAD";
-  }
-  else
-  {
-    bool found = false;
-    for (std::size_t t = 0; t < resultsPolyTree.size(); ++t)
-    {
-      std::map<int, te::gm::Geometry*>::iterator it = m_polyGeomMap.find(resultsPolyTree[t]);
-
-      te::gm::Geometry* g = it->second;
-
-      g->setSRID(p->getSRID());
-
-      bool covers = false;
-
-      if (g->isValid())
-      {
-        covers = g->covers(p);
-      }
-      else
-      {
-        if (resultsPolyTree.size() == 1)
-        {
-          found = true;
-          break;
-        }
-      } 
-
-      if (covers)
-      {
-        found = true;
-        break;
-      }
-    }
-
-    if (found)
-      forestType = "LIVE";
-    else
-      forestType = "DEAD";
-  }
-
-  //create dataset item
-  te::mem::DataSetItem* item = new te::mem::DataSetItem(m_dataSet.get());
-
-  //set id
-  item->setInt32(0, m_starterId);
-
-  //set origin id
-  item->setInt32(1, parcelId);
-
-  //set area
-  item->setDouble(2, 0.);
-
-  //forest type
-  item->setString(3, forestType);
-
-  //set geometry
-  item->setGeometry(4, new te::gm::Point(*p));
-
-  m_dataSet->add(item);
-
-  ++m_starterId;
-}
-
-te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId)
-{
-  double lowerDistance = std::numeric_limits<double>::max();
-
   te::gm::Point* point = 0;
 
   for (std::size_t t = 0; t < resultsTree.size(); ++t)
@@ -1145,22 +1254,30 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::getCandidatePoi
 
     std::map<int, te::da::ObjectId*>::iterator itObjId = m_centroidObjIdMap.find(resultsTree[t]);
 
-    if (!isClassified(itObjId->second))
+    double area = 0.;
+
+    std::string classValue = "";
+
+    if (!isClassified(itObjId->second, area, classValue))
     {
-      te::gm::Point* pCandidate = getPoint(it->second);
-
-      pCandidate->setSRID(srid);
-
-      if (pRoot->getX() != pCandidate->getX() || pRoot->getY() != pCandidate->getY())
+      if ((area > polyAreaMin && area < polyAreaMax) || area == 0.)
       {
-        //check for lower distance from guest point
-        double dist = std::abs(pGuess->distance(pCandidate));
+        te::gm::Point* pCandidate = getPoint(it->second);
 
-        if (dist < lowerDistance)
+        pCandidate->setSRID(srid);
+
+        if (pRoot->getX() != pCandidate->getX() || pRoot->getY() != pCandidate->getY())
         {
-          lowerDistance = dist;
-          point = pCandidate;
-          candidateOjbId = itObjId->second;
+          //check for lower distance from guest point
+          double dist = std::abs(pGuess->distance(pCandidate));
+
+          if (dist < lowerDistance)
+          {
+            lowerDistance = dist;
+            point = pCandidate;
+            candidateOjbId = itObjId->second;
+            candidateClassValue = classValue;
+          }
         }
       }
     }
@@ -1198,3 +1315,24 @@ std::auto_ptr<te::da::DataSetType> te::qt::plugins::tv5plugins::TrackAutoClassif
 
   return dataSetType;
 }
+
+/*
+Melhorias na geração de mudas mortas.
+criar parâmetros novos: maxdead,deltatol,minSeed,maxSeed
+
+Criar um contador de mudas mortas consecutivas (deadcount++) e
+fazer  extensâo do box em torno ponto "guess" = distancia*(tol=tolerancia+n*deltatol)
+Verifica se existe muda "nao classificada" ou "criada"
+se não existe muda, verifica se o ponto guess esta contido em um poligono
+se não testa o ponto guess1=Point(guess.x()-tol*dy,guess.y()+tol*dx)
+se nao testa o ponto guess2=Point(guess.x()+tol*dy,guess.y()-tol*dx)
+Todos os testes falharam cria muda morta se não cria muda viva no ponto guess,guess1 ou guess2
+Faz n=O sempre que cria uma muda viva ou n>= maxdead.
+Se n>=Maxdead para o processo de classificação de mudas para aquela trilha e toma outra trilha.
+
+Seleção automática de sementes
+Seed= muda "criada" ou "não classificada " que tenha area < 1,2(maxSeed) e area > 0,8(minSeed).
+
+Parada do processo
+Para a geração de trilha se encontra uma muda morta ou viva.
+*/
