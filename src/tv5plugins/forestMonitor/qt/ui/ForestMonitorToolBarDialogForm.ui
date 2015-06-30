@@ -6,28 +6,25 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>730</width>
-    <height>96</height>
+    <width>735</width>
+    <height>126</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Forest Monitor Tool Bar Dialog</string>
   </property>
   <layout class="QGridLayout" name="gridLayout_4">
-   <property name="sizeConstraint">
-    <enum>QLayout::SetFixedSize</enum>
-   </property>
    <property name="leftMargin">
-    <number>0</number>
+    <number>2</number>
    </property>
    <property name="topMargin">
-    <number>0</number>
+    <number>2</number>
    </property>
    <property name="rightMargin">
-    <number>0</number>
+    <number>2</number>
    </property>
    <property name="bottomMargin">
-    <number>0</number>
+    <number>2</number>
    </property>
    <item row="0" column="0">
     <widget class="QFrame" name="frame">
@@ -42,18 +39,15 @@
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <layout class="QGridLayout" name="gridLayout">
-          <item row="0" column="0">
-           <widget class="QLabel" name="label">
-            <property name="text">
-             <string>Points</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="m_layerPointsComboBox">
+            <property name="minimumSize">
+             <size>
+              <width>200</width>
+              <height>0</height>
+             </size>
             </property>
            </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QComboBox" name="m_layerParcelComboBox"/>
           </item>
           <item row="1" column="0">
            <widget class="QLabel" name="label_2">
@@ -65,18 +59,18 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
-           <widget class="QComboBox" name="m_layerPointsComboBox">
-            <property name="minimumSize">
-             <size>
-              <width>200</width>
-              <height>0</height>
-             </size>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="m_layerParcelComboBox"/>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>Points</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QComboBox" name="m_layerPolyComboBox"/>
           </item>
           <item row="2" column="0">
            <widget class="QLabel" name="label_3">
@@ -84,6 +78,9 @@
              <string>Polygons</string>
             </property>
            </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="m_layerPolyComboBox"/>
           </item>
          </layout>
         </item>
@@ -155,17 +152,33 @@
         </item>
         <item>
          <layout class="QGridLayout" name="gridLayout_2">
-          <item row="0" column="0">
-           <widget class="QLabel" name="m_dist">
+          <item row="3" column="2">
+           <widget class="QLineEdit" name="m_maxDeadLineEdit">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="text">
-             <string>Distance:</string>
+             <string>6</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
+          <item row="0" column="3">
+           <widget class="QLabel" name="m_dx">
+            <property name="text">
+             <string>Tolerance:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
            <widget class="QLineEdit" name="m_distLineEdit">
             <property name="maximumSize">
              <size>
@@ -181,17 +194,33 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="2">
-           <widget class="QLabel" name="m_dx">
+          <item row="3" column="4">
+           <widget class="QLineEdit" name="m_deadTolLineEdit">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="text">
-             <string>Tolerance:</string>
+             <string>0.1</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
-          <item row="0" column="3">
+          <item row="2" column="0" colspan="2">
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string>Polygon Area Threshold Min:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="4">
            <widget class="QLineEdit" name="m_distTolLineEdit">
             <property name="enabled">
              <bool>true</bool>
@@ -210,17 +239,33 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="m_dy">
+          <item row="2" column="2">
+           <widget class="QLineEdit" name="m_polyAreaMinLineEdit">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="text">
-             <string>Distance Buffer:</string>
+             <string>0.1</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="3" column="3">
+           <widget class="QLabel" name="label_7">
+            <property name="text">
+             <string>Dead Tol:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
            <widget class="QLineEdit" name="m_distBufferLineEdit">
             <property name="enabled">
              <bool>true</bool>
@@ -239,43 +284,7 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_4">
-            <property name="text">
-             <string>Polygon Area Threshold Min:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QLineEdit" name="m_polyAreaMinLineEdit">
-            <property name="maximumSize">
-             <size>
-              <width>50</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>0.1</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="2">
-           <widget class="QLabel" name="label_5">
-            <property name="text">
-             <string>Max:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="3">
+          <item row="2" column="4">
            <widget class="QLineEdit" name="m_polyAreaMaxLineEdit">
             <property name="maximumSize">
              <size>
@@ -285,6 +294,46 @@
             </property>
             <property name="text">
              <string>2.0</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="3">
+           <widget class="QLabel" name="label_5">
+            <property name="text">
+             <string>Max:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>Max Dead:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="m_dist">
+            <property name="text">
+             <string>Distance:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLabel" name="m_dy">
+            <property name="text">
+             <string>Distance Buffer:</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>

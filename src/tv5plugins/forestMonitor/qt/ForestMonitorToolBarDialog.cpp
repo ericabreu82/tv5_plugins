@@ -56,6 +56,8 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDia
   m_ui->m_distBufferLineEdit->setValidator(new QDoubleValidator(this));
   m_ui->m_polyAreaMinLineEdit->setValidator(new QDoubleValidator(this));
   m_ui->m_polyAreaMaxLineEdit->setValidator(new QDoubleValidator(this));
+  m_ui->m_maxDeadLineEdit->setValidator(new QIntValidator(this));
+  m_ui->m_deadTolLineEdit->setValidator(new QDoubleValidator(this));
 }
 
 te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::~ForestMonitorToolBarDialog()
@@ -182,6 +184,6 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackAutoClassif
   QCursor cursor(pxmap, 0, 0);
 
   te::qt::plugins::tv5plugins::TrackAutoClassifier* tool = new te::qt::plugins::tv5plugins::TrackAutoClassifier(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, layerPoly);
-  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distBufferLineEdit, m_ui->m_distTolLineEdit, m_ui->m_polyAreaMinLineEdit, m_ui->m_polyAreaMaxLineEdit);
+  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distBufferLineEdit, m_ui->m_distTolLineEdit, m_ui->m_polyAreaMinLineEdit, m_ui->m_polyAreaMaxLineEdit, m_ui->m_maxDeadLineEdit, m_ui->m_deadTolLineEdit);
   m_appDisplay->setCurrentTool(tool);
 }

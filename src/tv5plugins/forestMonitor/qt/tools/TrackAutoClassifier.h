@@ -37,6 +37,8 @@
 
 namespace te
 {
+  namespace da { class Where; }
+
   namespace gm { class Geometry; }
 
   namespace qt
@@ -84,7 +86,7 @@ namespace te
           /*! \brief Destructor. */
           ~TrackAutoClassifier();
 
-          void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax);
+          void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol);
 
           //@}
 
@@ -102,6 +104,8 @@ namespace te
           void selectObjects(QMouseEvent* e);
 
           void classifyObjects();
+          
+          void autoClassifyObjects();
 
           void cancelOperation(bool restart = false);
 
@@ -130,6 +134,8 @@ namespace te
           te::gm::Point* getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, std::string& candidateClassValue);
 
           std::auto_ptr<te::da::DataSetType> createTreeDataSetType();
+
+          te::da::Where* getRestriction(int originId);
 
         private:
 
@@ -163,6 +169,8 @@ namespace te
           QLineEdit* m_distanceToleranceFactorLineEdit;
           QLineEdit* m_polyAreaMin;
           QLineEdit* m_polyAreaMax;
+          QLineEdit* m_maxDeadLineEdit;
+          QLineEdit* m_deadTolLineEdit;
 
           double m_dx;
           double m_dy;
