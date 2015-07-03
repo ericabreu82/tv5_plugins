@@ -75,7 +75,7 @@
           <item row="2" column="0">
            <widget class="QLabel" name="label_3">
             <property name="text">
-             <string>Polygons</string>
+             <string>NDVI</string>
             </property>
            </widget>
           </item>
@@ -93,40 +93,49 @@
         </item>
         <item>
          <layout class="QGridLayout" name="gridLayout_6">
-          <item row="0" column="0">
-           <widget class="QToolButton" name="m_eraserToolButton">
-            <property name="text">
-             <string>...</string>
-            </property>
-            <property name="checkable">
-             <bool>true</bool>
-            </property>
-            <property name="autoExclusive">
-             <bool>true</bool>
-            </property>
-            <property name="autoRaise">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QToolButton" name="m_trackClassifierToolButton">
-            <property name="text">
-             <string>...</string>
-            </property>
-            <property name="checkable">
-             <bool>true</bool>
-            </property>
-            <property name="autoExclusive">
-             <bool>true</bool>
-            </property>
-            <property name="autoRaise">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
           <item row="0" column="2">
            <widget class="QToolButton" name="m_creatorToolButton">
+            <property name="toolTip">
+             <string>Creator...</string>
+            </property>
+            <property name="text">
+             <string>...</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="autoExclusive">
+             <bool>true</bool>
+            </property>
+            <property name="autoRaise">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QToolButton" name="m_eraserToolButton">
+            <property name="toolTip">
+             <string>Eraser...</string>
+            </property>
+            <property name="text">
+             <string>...</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="autoExclusive">
+             <bool>true</bool>
+            </property>
+            <property name="autoRaise">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QToolButton" name="m_trackClassifierToolButton">
+            <property name="toolTip">
+             <string>Update Class...</string>
+            </property>
             <property name="text">
              <string>...</string>
             </property>
@@ -203,7 +212,7 @@
              </size>
             </property>
             <property name="text">
-             <string>0.1</string>
+             <string>0.0</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -212,6 +221,9 @@
           </item>
           <item row="2" column="0" colspan="2">
            <widget class="QLabel" name="label_4">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
             <property name="text">
              <string>Polygon Area Threshold Min:</string>
             </property>
@@ -232,7 +244,7 @@
              </size>
             </property>
             <property name="text">
-             <string>0.2</string>
+             <string>0.3</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -241,6 +253,9 @@
           </item>
           <item row="2" column="2">
            <widget class="QLineEdit" name="m_polyAreaMinLineEdit">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
             <property name="maximumSize">
              <size>
               <width>50</width>
@@ -286,6 +301,9 @@
           </item>
           <item row="2" column="4">
            <widget class="QLineEdit" name="m_polyAreaMaxLineEdit">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
             <property name="maximumSize">
              <size>
               <width>50</width>
@@ -302,6 +320,9 @@
           </item>
           <item row="2" column="3">
            <widget class="QLabel" name="label_5">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
             <property name="text">
              <string>Max:</string>
             </property>
@@ -340,10 +361,39 @@
             </property>
            </widget>
           </item>
+          <item row="1" column="3">
+           <widget class="QLabel" name="label_8">
+            <property name="text">
+             <string>Threshold:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="4">
+           <widget class="QLineEdit" name="m_thresholdLineEdit">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>120.0</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
          </layout>
         </item>
         <item>
          <widget class="QToolButton" name="m_trackAutoClassifierToolButton">
+          <property name="toolTip">
+           <string>Classifier...</string>
+          </property>
           <property name="text">
            <string>...</string>
           </property>
@@ -370,13 +420,16 @@
   <tabstop>m_layerParcelComboBox</tabstop>
   <tabstop>m_layerPolyComboBox</tabstop>
   <tabstop>m_eraserToolButton</tabstop>
-  <tabstop>m_trackClassifierToolButton</tabstop>
   <tabstop>m_creatorToolButton</tabstop>
+  <tabstop>m_trackClassifierToolButton</tabstop>
   <tabstop>m_distLineEdit</tabstop>
   <tabstop>m_distTolLineEdit</tabstop>
   <tabstop>m_distBufferLineEdit</tabstop>
+  <tabstop>m_thresholdLineEdit</tabstop>
   <tabstop>m_polyAreaMinLineEdit</tabstop>
   <tabstop>m_polyAreaMaxLineEdit</tabstop>
+  <tabstop>m_maxDeadLineEdit</tabstop>
+  <tabstop>m_deadTolLineEdit</tabstop>
   <tabstop>m_trackAutoClassifierToolButton</tabstop>
  </tabstops>
  <resources/>

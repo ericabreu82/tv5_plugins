@@ -36,6 +36,8 @@ or (at your option) any later version.
 #include <terralib/maptools/DataSetLayer.h>
 #include <terralib/maptools/MarkRendererManager.h>
 #include <terralib/memory/DataSetItem.h>
+#include <terralib/raster/Grid.h>
+#include <terralib/raster/Raster.h>
 #include <terralib/se/Fill.h>
 #include <terralib/se/Stroke.h>
 #include <terralib/se/Mark.h>
@@ -61,12 +63,13 @@ or (at your option) any later version.
 #define POLY_AREA_MAX 2.0
 #define MAX_DEAD 6
 #define DELTA_TOL 0.1
+#define NDVI_THRESHOLD 120.0
 
 te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr polyLayer, QObject* parent)
   : AbstractTool(display, parent),
   m_coordLayer(coordLayer),
   m_parcelLayer(parcelLayer),
-  m_polyLayer(polyLayer),
+  //m_polyLayer(polyLayer),
   m_track(0),
   m_point0(0),
   m_objId0(0),
@@ -96,6 +99,11 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::wi
   createRTree();
 
   getStartIdValue();
+
+  //get raster
+  std::auto_ptr<te::da::DataSet> ds = polyLayer->getData();
+
+  m_ndviRaster = ds->getRaster(0).release();
 }
 
 te::qt::plugins::tv5plugins::TrackAutoClassifier::~TrackAutoClassifier()
@@ -103,8 +111,8 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::~TrackAutoClassifier()
   QPixmap* draft = m_display->getDraftPixmap();
   draft->fill(Qt::transparent);
 
-  m_polyRtree.clear();
-  te::common::FreeContents(m_polyGeomMap);
+  //m_polyRtree.clear();
+  //te::common::FreeContents(m_polyGeomMap);
   
   m_centroidRtree.clear();
   te::common::FreeContents(m_centroidGeomMap);
@@ -114,9 +122,11 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::~TrackAutoClassifier()
   delete m_point1;
 
   delete m_roots;
+
+  delete m_ndviRaster;
 }
 
-void te::qt::plugins::tv5plugins::TrackAutoClassifier::setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol)
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol, QLineEdit* threshold)
 {
   m_distLineEdit = distLineEdit;
   m_distanceBufferLineEdit = distanceBufferLineEdit;
@@ -125,6 +135,7 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::setLineEditComponents(QLi
   m_polyAreaMax = polyAreaMax;
   m_maxDeadLineEdit = maxDead;
   m_deadTolLineEdit = deadTol;
+  m_thresholdLineEdit = threshold;
 }
 
 bool te::qt::plugins::tv5plugins::TrackAutoClassifier::eventFilter(QObject* watched, QEvent* e)
@@ -149,7 +160,7 @@ bool te::qt::plugins::tv5plugins::TrackAutoClassifier::eventFilter(QObject* watc
     if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Control) && m_classify && m_point0)
       classifyObjects();
 
-    if ((event->key() == Qt::Key_F5) && m_classify && m_point0)
+    if ((event->key() == Qt::Key_Alt || event->key() == Qt::Key_AltGr) && m_classify && m_point0)
       autoClassifyObjects();
 
     if (event->key() == Qt::Key_Escape)
@@ -380,9 +391,9 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::classifyObjects()
         QMessageBox::critical(m_display, tr("Error"), QString(tr("Error classifying track. Details:") + " %1.").arg(e.what()));
         break;
       }
-
-      task.pulse();
     }
+
+    task.pulse();
   }
 
   QApplication::restoreOverrideCursor();
@@ -416,20 +427,21 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::autoClassifyObjects()
   int parcelId;
   std::auto_ptr<te::gm::Geometry> parcelGeom = getParcelGeeom(m_point0, parcelId);
 
-  bool run = true;
+  te::da::Where* whereClause = getRestriction(parcelId);
 
-  while (run)
+  std::auto_ptr<te::da::DataSet> dsResult = m_coordLayer->getData(whereClause->getExp());
+
+  te::common::TaskProgress task("Auto Classifier");
+  task.setTotalSteps(dsResult->size());
+
+  dsResult->moveBeforeFirst();
+
+  while (dsResult->moveNext())
   {
-    te::da::Where* whereClause = getRestriction(parcelId);
-
-    std::auto_ptr<te::da::DataSet> dsResult = m_coordLayer->getData(whereClause->getExp());
-
-    if (dsResult->size() == 0)
+    if (!task.isActive())
     {
       break;
     }
-
-    dsResult->moveFirst();
 
     std::auto_ptr<te::gm::Geometry> g(dsResult->getGeometry(gp->getName()));
 
@@ -520,6 +532,8 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::autoClassifyObjects()
         break;
       }
     }
+
+    task.pulse();
   }
 
   QApplication::restoreOverrideCursor();
@@ -781,38 +795,10 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
     {
       //live point
       te::da::ObjectId* objIdCandidate = 0;
-      std::string candidateClassValue = "";
-      te::gm::Point* pCandidate = getCandidatePoint(rootPoint, guestPoint, srid, resultsTree, objIdCandidate, candidateClassValue);
+      bool abort = false;
+      te::gm::Point* pCandidate = getCandidatePoint(rootPoint, guestPoint, srid, resultsTree, objIdCandidate, abort);
 
-      if (!pCandidate)
-      {
-        te::gm::Point* pGuessCalculated = calculateGuessPoint(guestPoint, parcelId);
-
-        rootPoint = pGuessCalculated;
-      }
-      else
-      {
-        rootPoint = pCandidate;
-
-        m_track->add(objIdCandidate);
-
-        m_deadCount = 0;
-      }
-
-      insideParcel = parcelGeom->covers(rootPoint);
-
-      if (insideParcel)
-      {
-        if (!invert)
-        {
-          track.push_back(new te::gm::Point(*rootPoint));
-        }
-        else
-        {
-          track.push_front(new te::gm::Point(*rootPoint));
-        }
-      }
-      else
+      if (abort)
       {
         if (!invert)
         {
@@ -822,6 +808,53 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
           dy = dy * -1;
           rootPoint = starter;
           m_deadCount = 0;
+        }
+        else
+        {
+          break;
+        }
+      }
+      else
+      {
+        if (!pCandidate)
+        {
+          te::gm::Point* pGuessCalculated = calculateGuessPoint(guestPoint, parcelId);
+
+          rootPoint = pGuessCalculated;
+        }
+        else
+        {
+          rootPoint = pCandidate;
+
+          m_track->add(objIdCandidate);
+
+          m_deadCount = 0;
+        }
+
+        insideParcel = parcelGeom->covers(rootPoint);
+
+        if (insideParcel)
+        {
+          if (!invert)
+          {
+            track.push_back(new te::gm::Point(*rootPoint));
+          }
+          else
+          {
+            track.push_front(new te::gm::Point(*rootPoint));
+          }
+        }
+        else
+        {
+          if (!invert)
+          {
+            invert = true;
+            insideParcel = true;
+            dx = dx * -1;
+            dy = dy * -1;
+            rootPoint = starter;
+            m_deadCount = 0;
+          }
         }
       }
     }
@@ -1122,38 +1155,38 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::createRTree()
     m_centroidObjIdMap.insert(std::map<int, te::da::ObjectId*>::value_type(id, te::da::GenerateOID(ds.get(), pnames)));
   }
 
-  //create polygons rtree
-  if (m_polyGeomMap.empty())
-  {
-    std::auto_ptr<const te::map::LayerSchema> schema(m_polyLayer->getSchema());
-    std::auto_ptr<te::da::DataSet> ds(m_polyLayer->getData());
+  ////create polygons rtree
+  //if (m_polyGeomMap.empty())
+  //{
+  //  std::auto_ptr<const te::map::LayerSchema> schema(m_polyLayer->getSchema());
+  //  std::auto_ptr<te::da::DataSet> ds(m_polyLayer->getData());
 
-    //geom property info
-    te::gm::GeometryProperty* gmProp = te::da::GetFirstGeomProperty(schema.get());
+  //  //geom property info
+  //  te::gm::GeometryProperty* gmProp = te::da::GetFirstGeomProperty(schema.get());
 
-    int geomIdx = te::da::GetPropertyPos(schema.get(), gmProp->getName());
+  //  int geomIdx = te::da::GetPropertyPos(schema.get(), gmProp->getName());
 
-    //id info
-    te::da::PrimaryKey* pk = schema->getPrimaryKey();
+  //  //id info
+  //  te::da::PrimaryKey* pk = schema->getPrimaryKey();
 
-    int idIdx = te::da::GetPropertyPos(schema.get(), pk->getProperties()[0]->getName());
+  //  int idIdx = te::da::GetPropertyPos(schema.get(), pk->getProperties()[0]->getName());
 
-    ds->moveBeforeFirst();
+  //  ds->moveBeforeFirst();
 
-    while (ds->moveNext())
-    {
-      std::string strId = ds->getAsString(idIdx);
+  //  while (ds->moveNext())
+  //  {
+  //    std::string strId = ds->getAsString(idIdx);
 
-      int id = atoi(strId.c_str());
+  //    int id = atoi(strId.c_str());
 
-      te::gm::Geometry* g = ds->getGeometry(geomIdx).release();
-      const te::gm::Envelope* box = g->getMBR();
+  //    te::gm::Geometry* g = ds->getGeometry(geomIdx).release();
+  //    const te::gm::Envelope* box = g->getMBR();
 
-      m_polyRtree.insert(*box, id);
+  //    m_polyRtree.insert(*box, id);
 
-      m_polyGeomMap.insert(std::map<int, te::gm::Geometry*>::value_type(id, g));
-    }
-  }
+  //    m_polyGeomMap.insert(std::map<int, te::gm::Geometry*>::value_type(id, g));
+  //  }
+  //}
 
   QApplication::restoreOverrideCursor();
 }
@@ -1258,139 +1291,209 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::calculateGuessP
     toleranceFactor = m_distanceToleranceFactorLineEdit->text().toDouble();
   }
 
+  double thresholdValue = NDVI_THRESHOLD;
+
+  if (!m_thresholdLineEdit->text().isEmpty())
+  {
+    thresholdValue = m_thresholdLineEdit->text().toDouble();
+  }
+
+  //std::string forestType = "UNKNOWN";
+
+  //te::gm::Envelope extPoint(p->getX(), p->getY(), p->getX(), p->getY());
+
+  //extPoint.m_llx -= (std::abs(m_dx) * toleranceFactor);
+  //extPoint.m_lly -= (std::abs(m_dy) * toleranceFactor);
+  //extPoint.m_urx += (std::abs(m_dx) * toleranceFactor);
+  //extPoint.m_ury += (std::abs(m_dy) * toleranceFactor);
+
+  //std::vector<int> resultsPolyTree;
+
+  //m_polyRtree.search(extPoint, resultsPolyTree);
+
+  //te::gm::Point* pGuessCalculated = 0;
+
+  //if (resultsPolyTree.empty())
+  //{
+  //  forestType = "DEAD";
+
+  //  ++m_deadCount;
+
+  //  pGuessCalculated = p;
+  //}
+  //else
+  //{
+  //  bool found = false;
+
+  //  for (std::size_t t = 0; t < resultsPolyTree.size(); ++t)
+  //  {
+  //    std::map<int, te::gm::Geometry*>::iterator it = m_polyGeomMap.find(resultsPolyTree[t]);
+
+  //    te::gm::Geometry* g = it->second;
+
+  //    g->setSRID(p->getSRID());
+
+  //    bool covers = false;
+
+  //    if (g->isValid())
+  //    {
+  //      //try guess point
+  //      covers = g->covers(p);
+
+  //      if (covers)
+  //      {
+  //        found = true;
+
+  //        pGuessCalculated = p;
+
+  //        break;
+  //      }
+
+  //      te::gm::Geometry* geomBox = te::gm::GetGeomFromEnvelope(&extPoint, p->getSRID());
+
+  //      te::gm::Geometry* gIntersec = geomBox->intersection(g);
+
+  //      if (gIntersec && gIntersec->isValid())
+  //      {
+  //        if (gIntersec->getGeomTypeId() == te::gm::PolygonType)
+  //        {
+  //          te::gm::Polygon* poly = dynamic_cast<te::gm::Polygon*>(gIntersec);
+
+  //          pGuessCalculated = poly->getCentroid();
+
+  //          found = true;
+
+  //          break;
+  //        }
+  //        else if (gIntersec->getGeomTypeId() == te::gm::MultiPolygonType)
+  //        {
+  //          te::gm::MultiPolygon* mpoly = dynamic_cast<te::gm::MultiPolygon*>(gIntersec);
+
+  //          te::gm::Polygon* poly = dynamic_cast<te::gm::Polygon*>(mpoly->getGeometryN(0));
+
+  //          pGuessCalculated = poly->getCentroid();
+
+  //          found = true;
+
+  //          break;
+  //        }
+  //      }
+  //    }
+  //    else
+  //    {
+  //      found = true;
+
+  //      pGuessCalculated = p;
+
+  //      break;
+  //    } 
+  //  }
+
+  //  if (found)
+  //  {
+  //    forestType = "LIVE";
+
+  //    m_deadCount = 0;
+  //  }
+  //  else
+  //  {
+  //    forestType = "DEAD";
+
+  //    ++m_deadCount;
+
+  //    pGuessCalculated = p;
+  //  }
+  //}
+
+  m_ndviRaster->getGrid()->setSRID(p->getSRID());
+
   std::string forestType = "UNKNOWN";
 
-  te::gm::Envelope extPoint(p->getX(), p->getY(), p->getX(), p->getY());
+  te::gm::Point* pGuess = 0;
 
-  extPoint.m_llx -= (std::abs(m_dx) * toleranceFactor);
-  extPoint.m_lly -= (std::abs(m_dy) * toleranceFactor);
-  extPoint.m_urx += (std::abs(m_dx) * toleranceFactor);
-  extPoint.m_ury += (std::abs(m_dy) * toleranceFactor);
+  //try guess point
+  te::gm::Coord2D coordGuess = m_ndviRaster->getGrid()->geoToGrid(p->getX(), p->getY());
 
-  std::vector<int> resultsPolyTree;
+  double valueGuess = 0.;
 
-  m_polyRtree.search(extPoint, resultsPolyTree);
+  m_ndviRaster->getValue(coordGuess.getX(), coordGuess.getY(), valueGuess);
 
-  te::gm::Point* pGuessCalculated = 0;
+  //try ll guess point
+  te::gm::Coord2D coordGuessLL = m_ndviRaster->getGrid()->geoToGrid(p->getX() - (m_dx * toleranceFactor), p->getY() - (m_dy * toleranceFactor));
 
-  if (resultsPolyTree.empty())
+  double valueGuessLL = 0.;
+
+  m_ndviRaster->getValue(coordGuessLL.getX(), coordGuessLL.getY(), valueGuessLL);
+
+  //try lr guess point
+  te::gm::Coord2D coordGuessLR = m_ndviRaster->getGrid()->geoToGrid(p->getX() + (m_dx * toleranceFactor), p->getY() + (m_dy * toleranceFactor));
+
+  double valueGuessLR = 0.;
+
+  m_ndviRaster->getValue(coordGuessLR.getX(), coordGuessLR.getY(), valueGuessLR);
+
+  //try ul guess point
+  te::gm::Coord2D coordGuessUL = m_ndviRaster->getGrid()->geoToGrid(p->getX() - (m_dy * toleranceFactor), p->getY() + (m_dx * toleranceFactor));
+
+  double valueGuessUL = 0.;
+
+  m_ndviRaster->getValue(coordGuessUL.getX(), coordGuessUL.getY(), valueGuessUL);
+
+  //try ur guess point
+  te::gm::Coord2D coordGuessUR = m_ndviRaster->getGrid()->geoToGrid(p->getX() + (m_dy * toleranceFactor), p->getY() - (m_dx * toleranceFactor));
+
+  double valueGuessUR = 0.;
+
+  m_ndviRaster->getValue(coordGuessUR.getX(), coordGuessUR.getY(), valueGuessUR);
+
+
+  if (valueGuess > thresholdValue)
+  {
+    forestType = "LIVE";
+
+    m_deadCount = 0;
+
+    pGuess = p;
+  }
+  else if (valueGuessLL > thresholdValue)
+  {
+    forestType = "LIVE";
+
+    m_deadCount = 0;
+
+    pGuess = new te::gm::Point(p->getX() - (m_dx * toleranceFactor), p->getY() - (m_dy * toleranceFactor), p->getSRID());
+  }
+  else if (valueGuessLR > thresholdValue)
+  {
+    forestType = "LIVE";
+
+    m_deadCount = 0;
+
+    pGuess = new te::gm::Point(p->getX() + (m_dx * toleranceFactor), p->getY() + (m_dy * toleranceFactor), p->getSRID());
+  }
+  else if (valueGuessUL > thresholdValue)
+  {
+    forestType = "LIVE";
+
+    m_deadCount = 0;
+
+    pGuess = new te::gm::Point(p->getX() - (m_dy * toleranceFactor), p->getY() + (m_dx * toleranceFactor), p->getSRID());
+  }
+  else if (valueGuessUR > thresholdValue)
+  {
+    forestType = "LIVE";
+
+    m_deadCount = 0;
+
+    pGuess = new te::gm::Point(p->getX() + (m_dy * toleranceFactor), p->getY() - (m_dx * toleranceFactor), p->getSRID());
+  }
+  else
   {
     forestType = "DEAD";
 
     ++m_deadCount;
 
-    pGuessCalculated = p;
-  }
-  else
-  {
-    bool found = false;
-
-    for (std::size_t t = 0; t < resultsPolyTree.size(); ++t)
-    {
-      std::map<int, te::gm::Geometry*>::iterator it = m_polyGeomMap.find(resultsPolyTree[t]);
-
-      te::gm::Geometry* g = it->second;
-
-      g->setSRID(p->getSRID());
-
-      bool covers = false;
-
-      if (g->isValid())
-      {
-        //try guess point
-        covers = g->covers(p);
-
-        if (covers)
-        {
-          found = true;
-
-          pGuessCalculated = p;
-
-          break;
-        }
-
-        te::gm::Geometry* geomBox = te::gm::GetGeomFromEnvelope(&extPoint, p->getSRID());
-
-        te::gm::Geometry* gIntersec = geomBox->intersection(g);
-
-        if (gIntersec && gIntersec->isValid())
-        {
-          if (gIntersec->getGeomTypeId() == te::gm::PolygonType)
-          {
-            te::gm::Polygon* poly = dynamic_cast<te::gm::Polygon*>(gIntersec);
-
-            pGuessCalculated = poly->getCentroid();
-
-            found = true;
-
-            break;
-          }
-          else if (gIntersec->getGeomTypeId() == te::gm::MultiPolygonType)
-          {
-            te::gm::MultiPolygon* mpoly = dynamic_cast<te::gm::MultiPolygon*>(gIntersec);
-
-            te::gm::Polygon* poly = dynamic_cast<te::gm::Polygon*>(mpoly->getGeometryN(0));
-
-            pGuessCalculated = poly->getCentroid();
-
-            found = true;
-
-            break;
-          }
-        }
-
-        ////try guess point 1
-        //std::auto_ptr<te::gm::Point> p1(new te::gm::Point(p->getX() - (m_dy * toleranceFactor), p->getY() + (m_dx * toleranceFactor), p->getSRID()));
-
-        //covers = g->covers(p1.get());
-
-        //if (covers)
-        //{
-        //  found = true;
-
-        //  pGuessCalculated = p1.release();
-
-        //  break;
-        //}
-
-        ////try guess point 2
-        //std::auto_ptr<te::gm::Point> p2(new te::gm::Point(p->getX() + (m_dy * toleranceFactor), p->getY() - (m_dx * toleranceFactor), p->getSRID()));
-
-        //covers = g->covers(p2.get());
-
-        //if (covers)
-        //{
-        //  found = true;
-
-        //  pGuessCalculated = p2.release();
-
-        //  break;
-        //}
-      }
-      else
-      {
-        found = true;
-
-        pGuessCalculated = p;
-
-        break;
-      } 
-    }
-
-    if (found)
-    {
-      forestType = "LIVE";
-
-      m_deadCount = 0;
-    }
-    else
-    {
-      forestType = "DEAD";
-
-      ++m_deadCount;
-
-      pGuessCalculated = p;
-    }
+    pGuess = p;
   }
 
   //create dataset item
@@ -1409,16 +1512,16 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::calculateGuessP
   item->setString(3, forestType);
 
   //set geometry
-  item->setGeometry(4, new te::gm::Point(*pGuessCalculated));
+  item->setGeometry(4, new te::gm::Point(*pGuess));
 
   m_dataSet->add(item);
 
   ++m_starterId;
 
-  return pGuessCalculated;
+  return pGuess;
 }
 
-te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, std::string& candidateClassValue)
+te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, bool& abort)
 {
   double lowerDistance = std::numeric_limits<double>::max();
 
@@ -1473,12 +1576,19 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::getCandidatePoi
             lowerDistance = dist;
             point = pCandidate;
             candidateOjbId = itObjId->second;
-            candidateClassValue = classValue;
           }
         }
       }
     }
+    else
+    {
+      abort = true;
+
+      return 0;
+    }
   }
+
+  abort = false;
 
   return point;
 }
@@ -1517,38 +1627,38 @@ te::da::Where* te::qt::plugins::tv5plugins::TrackAutoClassifier::getRestriction(
 {
   // select * from pontos where (originId = X E ( tipo = CREATED OR (tipo = UNKNOWN E (area > 0.8 E area < 1.0))) order by tipo
 
-  //area1
-  te::da::PropertyName* propArea1 = new te::da::PropertyName("area");
+  ////area1
+  //te::da::PropertyName* propArea1 = new te::da::PropertyName("area");
 
-  //0.8
-  te::da::Literal* minorAreaValue = new te::da::LiteralDouble(0.8);
+  ////0.8
+  //te::da::Literal* minorAreaValue = new te::da::LiteralDouble(0.6);
 
-  //area > 0.8
-  te::da::GreaterThan* greaterThanArea = new te::da::GreaterThan(propArea1, minorAreaValue);
+  ////area > 0.8
+  //te::da::GreaterThan* greaterThanArea = new te::da::GreaterThan(propArea1, minorAreaValue);
 
-  //area2
-  te::da::PropertyName* propArea2 = new te::da::PropertyName("area");
+  ////area2
+  //te::da::PropertyName* propArea2 = new te::da::PropertyName("area");
 
-  //1.0
-  te::da::Literal* majorAreaValue = new te::da::LiteralDouble(1.0);
+  ////1.0
+  //te::da::Literal* majorAreaValue = new te::da::LiteralDouble(1.3);
 
-  //area < 1.0
-  te::da::LessThan* lessThanArea = new te::da::LessThan(propArea2, majorAreaValue);
+  ////area < 1.0
+  //te::da::LessThan* lessThanArea = new te::da::LessThan(propArea2, majorAreaValue);
 
-  //area > 0.8 E area < 1.0
-  te::da::And* andArea = new te::da::And(greaterThanArea, lessThanArea);
+  ////area > 0.8 E area < 1.0
+  //te::da::And* andArea = new te::da::And(greaterThanArea, lessThanArea);
 
-  //tipo = UNKNOWN
-  te::da::PropertyName* propTypeUnknown = new te::da::PropertyName("type");
+  ////tipo = UNKNOWN
+  //te::da::PropertyName* propTypeUnknown = new te::da::PropertyName("type");
 
-  //UNKNOWN
-  te::da::Literal* typeUnknownValue = new te::da::LiteralString("UNKNOWN");
+  ////UNKNOWN
+  //te::da::Literal* typeUnknownValue = new te::da::LiteralString("UNKNOWN");
 
-  //type equal
-  te::da::EqualTo* typeUnknownEqual = new te::da::EqualTo(propTypeUnknown, typeUnknownValue);
+  ////type equal
+  //te::da::EqualTo* typeUnknownEqual = new te::da::EqualTo(propTypeUnknown, typeUnknownValue);
 
-  //tipo = UNKNOWN E (area > 0.8 E area < 1.0)
-  te::da::And* andType = new te::da::And(typeUnknownEqual, andArea);
+  ////tipo = UNKNOWN E (area > 0.8 E area < 1.0)
+  //te::da::And* andType = new te::da::And(typeUnknownEqual, andArea);
 
   //tipo = CREATED
   te::da::PropertyName* propTypeCreated = new te::da::PropertyName("type");
@@ -1559,8 +1669,8 @@ te::da::Where* te::qt::plugins::tv5plugins::TrackAutoClassifier::getRestriction(
   //type equal
   te::da::EqualTo* typeCreatedEqual = new te::da::EqualTo(propTypeCreated, typeCreatedValue);
 
-  //tipo = CREATED OR (tipo = UNKNOWN E (area > 0.8 E area < 1.0))
-  te::da::Or* orType = new te::da::Or(typeCreatedEqual, andType);
+  ////tipo = CREATED OR (tipo = UNKNOWN E (area > 0.8 E area < 1.0))
+  //te::da::Or* orType = new te::da::Or(typeCreatedEqual, andType);
 
   //originId = X
   te::da::PropertyName* propOriginId = new te::da::PropertyName("originId");
@@ -1572,7 +1682,7 @@ te::da::Where* te::qt::plugins::tv5plugins::TrackAutoClassifier::getRestriction(
   te::da::EqualTo* originEqual = new te::da::EqualTo(propOriginId, originIdValue);
 
   //originId = X E ( tipo = CREATED OR (tipo = UNKNOWN E (area > 0.8 E area < 1.0)))
-  te::da::And* andOrigin = new te::da::And(originEqual, orType);
+  te::da::And* andOrigin = new te::da::And(originEqual, typeCreatedEqual);
 
   //create where
   te:da::Where* where = new te::da::Where(andOrigin);

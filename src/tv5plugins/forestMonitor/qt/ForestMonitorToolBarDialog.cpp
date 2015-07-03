@@ -29,6 +29,7 @@
 #include "tools/Eraser.h"
 #include "tools/TrackClassifier.h"
 #include "tools/TrackAutoClassifier.h"
+#include "tools/UpdateClass.h"
 #include "ForestMonitorToolBarDialog.h"
 #include "ui_ForestMonitorToolBarDialogForm.h"
 
@@ -42,7 +43,7 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDia
   m_ui->setupUi(this);
 
   m_ui->m_eraserToolButton->setIcon(QIcon::fromTheme("pointer-remove-selection"));
-  m_ui->m_trackClassifierToolButton->setIcon(QIcon::fromTheme("wand"));
+  m_ui->m_trackClassifierToolButton->setIcon(QIcon::fromTheme("view-refresh"));
   m_ui->m_creatorToolButton->setIcon(QIcon::fromTheme("pointer"));
   m_ui->m_trackAutoClassifierToolButton->setIcon(QIcon::fromTheme("wand"));
 
@@ -58,6 +59,7 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDia
   m_ui->m_polyAreaMaxLineEdit->setValidator(new QDoubleValidator(this));
   m_ui->m_maxDeadLineEdit->setValidator(new QIntValidator(this));
   m_ui->m_deadTolLineEdit->setValidator(new QDoubleValidator(this));
+  m_ui->m_thresholdLineEdit->setValidator(new QDoubleValidator(this));
 }
 
 te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::~ForestMonitorToolBarDialog()
@@ -86,6 +88,9 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::setLayerList(std::
       {
         m_ui->m_layerParcelComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
         m_ui->m_layerPointsComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
+      }
+      else if (dsType->hasRaster())
+      {
         m_ui->m_layerPolyComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
       }
     }
@@ -120,25 +125,41 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onEraserToolButton
 
 void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackClassifierToolButtonClicked(bool flag)
 {
+  //if (!flag)
+  //  return;
+
+  //if (!m_appDisplay)
+  //  return;
+
+  //QVariant varLayerPoint = m_ui->m_layerPointsComboBox->itemData(m_ui->m_layerPointsComboBox->currentIndex(), Qt::UserRole);
+  //te::map::AbstractLayerPtr layerPoints = varLayerPoint.value<te::map::AbstractLayerPtr>();
+
+  //QVariant varLayerParcel = m_ui->m_layerParcelComboBox->itemData(m_ui->m_layerParcelComboBox->currentIndex(), Qt::UserRole);
+  //te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
+
+  //QVariant varLayerPoly = m_ui->m_layerPolyComboBox->itemData(m_ui->m_layerPolyComboBox->currentIndex(), Qt::UserRole);
+  //te::map::AbstractLayerPtr layerPoly = varLayerPoly.value<te::map::AbstractLayerPtr>();
+
+  //QPixmap pxmap = QIcon::fromTheme("pointer-selection").pixmap(QSize(16, 16));
+  //QCursor cursor(pxmap, 0, 0);
+
+  //te::qt::plugins::tv5plugins::TrackClassifier* tool = new te::qt::plugins::tv5plugins::TrackClassifier(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, layerPoly);
+  //m_appDisplay->setCurrentTool(tool);
+
   if (!flag)
     return;
 
   if (!m_appDisplay)
     return;
 
-  QVariant varLayerPoint = m_ui->m_layerPointsComboBox->itemData(m_ui->m_layerPointsComboBox->currentIndex(), Qt::UserRole);
-  te::map::AbstractLayerPtr layerPoints = varLayerPoint.value<te::map::AbstractLayerPtr>();
+  QVariant varLayer = m_ui->m_layerPointsComboBox->itemData(m_ui->m_layerPointsComboBox->currentIndex(), Qt::UserRole);
 
-  QVariant varLayerParcel = m_ui->m_layerParcelComboBox->itemData(m_ui->m_layerParcelComboBox->currentIndex(), Qt::UserRole);
-  te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
-
-  QVariant varLayerPoly = m_ui->m_layerPolyComboBox->itemData(m_ui->m_layerPolyComboBox->currentIndex(), Qt::UserRole);
-  te::map::AbstractLayerPtr layerPoly = varLayerPoly.value<te::map::AbstractLayerPtr>();
+  te::map::AbstractLayerPtr layer = varLayer.value<te::map::AbstractLayerPtr>();
 
   QPixmap pxmap = QIcon::fromTheme("pointer-selection").pixmap(QSize(16, 16));
   QCursor cursor(pxmap, 0, 0);
 
-  te::qt::plugins::tv5plugins::TrackClassifier* tool = new te::qt::plugins::tv5plugins::TrackClassifier(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, layerPoly);
+  te::qt::plugins::tv5plugins::UpdateClass* tool = new te::qt::plugins::tv5plugins::UpdateClass(m_appDisplay->getDisplay(), cursor, layer);
   m_appDisplay->setCurrentTool(tool);
 }
 
@@ -184,6 +205,6 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackAutoClassif
   QCursor cursor(pxmap, 0, 0);
 
   te::qt::plugins::tv5plugins::TrackAutoClassifier* tool = new te::qt::plugins::tv5plugins::TrackAutoClassifier(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, layerPoly);
-  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distBufferLineEdit, m_ui->m_distTolLineEdit, m_ui->m_polyAreaMinLineEdit, m_ui->m_polyAreaMaxLineEdit, m_ui->m_maxDeadLineEdit, m_ui->m_deadTolLineEdit);
+  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distBufferLineEdit, m_ui->m_distTolLineEdit, m_ui->m_polyAreaMinLineEdit, m_ui->m_polyAreaMaxLineEdit, m_ui->m_maxDeadLineEdit, m_ui->m_deadTolLineEdit, m_ui->m_thresholdLineEdit);
   m_appDisplay->setCurrentTool(tool);
 }

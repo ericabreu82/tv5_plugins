@@ -41,6 +41,8 @@ namespace te
 
   namespace gm { class Geometry; }
 
+  namespace rst { class Raster; }
+
   namespace qt
   {
     namespace widgets
@@ -86,7 +88,7 @@ namespace te
           /*! \brief Destructor. */
           ~TrackAutoClassifier();
 
-          void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol);
+          void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol, QLineEdit* threshold);
 
           //@}
 
@@ -131,7 +133,7 @@ namespace te
 
           te::gm::Point* calculateGuessPoint(te::gm::Point* p, int parcelId);
 
-          te::gm::Point* getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, std::string& candidateClassValue);
+          te::gm::Point* getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, bool& abort);
 
           std::auto_ptr<te::da::DataSetType> createTreeDataSetType();
 
@@ -141,10 +143,10 @@ namespace te
 
           te::map::AbstractLayerPtr m_coordLayer;         //!<The layer that will be classified.
           te::map::AbstractLayerPtr m_parcelLayer;        //!<The layer with geometry restriction.
-          te::map::AbstractLayerPtr m_polyLayer;          //!<The layer with polygons geometry.
+          //te::map::AbstractLayerPtr m_polyLayer;          //!<The layer with polygons geometry.
 
-          te::sam::rtree::Index<int> m_polyRtree;
-          std::map<int, te::gm::Geometry*> m_polyGeomMap;
+          //te::sam::rtree::Index<int> m_polyRtree;
+          //std::map<int, te::gm::Geometry*> m_polyGeomMap;
 
           te::sam::rtree::Index<int> m_centroidRtree;
           std::map<int, te::gm::Geometry*> m_centroidGeomMap;
@@ -171,6 +173,7 @@ namespace te
           QLineEdit* m_polyAreaMax;
           QLineEdit* m_maxDeadLineEdit;
           QLineEdit* m_deadTolLineEdit;
+          QLineEdit* m_thresholdLineEdit;
 
           double m_dx;
           double m_dy;
@@ -181,6 +184,8 @@ namespace te
           unsigned int m_maxDead;
           unsigned int m_deadCount;
           double m_deltaTol;
+
+          te::rst::Raster* m_ndviRaster;
         };
 
       } // end namespace tv5plugins
