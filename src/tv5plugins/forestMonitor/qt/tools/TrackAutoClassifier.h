@@ -139,14 +139,12 @@ namespace te
 
           te::da::Where* getRestriction(int originId);
 
+          void processDataSet(te::da::DataSet* ds);
+
         private:
 
           te::map::AbstractLayerPtr m_coordLayer;         //!<The layer that will be classified.
           te::map::AbstractLayerPtr m_parcelLayer;        //!<The layer with geometry restriction.
-          //te::map::AbstractLayerPtr m_polyLayer;          //!<The layer with polygons geometry.
-
-          //te::sam::rtree::Index<int> m_polyRtree;
-          //std::map<int, te::gm::Geometry*> m_polyGeomMap;
 
           te::sam::rtree::Index<int> m_centroidRtree;
           std::map<int, te::gm::Geometry*> m_centroidGeomMap;
