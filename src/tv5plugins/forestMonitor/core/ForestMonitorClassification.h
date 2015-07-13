@@ -80,6 +80,8 @@ namespace te
 
         void ExportPolyVector(std::vector<te::gm::Geometry*>& geomVec, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid);
 
+        void ClearData(te::map::AbstractLayerPtr layer);
+
       } // end namespace thirdParty
     }   // end namespace plugins
   }     // end namespace qt

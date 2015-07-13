@@ -29,11 +29,14 @@
 #include <terralib/dataaccess/dataset/DataSetType.h>
 #include <terralib/dataaccess/dataset/PrimaryKey.h>
 #include <terralib/dataaccess/datasource/DataSource.h>
+#include <terralib/dataaccess/datasource/DataSourceInfoManager.h>
+#include <terralib/dataaccess/datasource/DataSourceManager.h>
 #include <terralib/dataaccess/datasource/DataSourceFactory.h>
 #include <terralib/dataaccess/utils/Utils.h>
 #include <terralib/datatype/SimpleProperty.h>
 #include <terralib/datatype/StringProperty.h>
 #include <terralib/geometry/GeometryProperty.h>
+#include <terralib/geometry/MultiPoint.h>
 #include <terralib/geometry/MultiPolygon.h>
 #include <terralib/geometry/Utils.h>
 #include <terralib/memory/DataSet.h>
@@ -48,6 +51,11 @@
 
 //STL Includes
 #include <cassert>
+
+// Boost
+#include <boost/filesystem.hpp>
+#include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
 std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateFilterRaster(te::rst::Raster* raster, int band, int nIter,
   te::rp::Filter::InputParameters::FilterType fType, std::string type, std::map<std::string, std::string> rinfo)
@@ -392,3 +400,200 @@ void te::qt::plugins::tv5plugins::ExportPolyVector(std::vector<te::gm::Geometry*
   dataSource->createDataSet(dataSetType.get(), options);
   dataSource->add(dataSetName, dataSetMem.get(), options);
 }
+
+void te::qt::plugins::tv5plugins::ClearData(te::map::AbstractLayerPtr layer)
+{
+  // create output dataset
+  std::string dataSetName = "testFix";
+  std::string repository = "d:/testFix.shp";
+  std::string dsType = "OGR";
+  std::map<std::string, std::string> connInfo;
+  connInfo["URI"] = repository;
+
+  boost::uuids::basic_random_generator<boost::mt19937> gen;
+  boost::uuids::uuid u = gen();
+  std::string id_ds = boost::uuids::to_string(u);
+
+  te::da::DataSourceInfoPtr dsInfoPtr(new te::da::DataSourceInfo);
+  dsInfoPtr->setConnInfo(connInfo);
+  dsInfoPtr->setTitle(repository);
+  dsInfoPtr->setAccessDriver("OGR");
+  dsInfoPtr->setType("OGR");
+  dsInfoPtr->setDescription(repository);
+  dsInfoPtr->setId(id_ds);
+
+  te::da::DataSourceInfoManager::getInstance().add(dsInfoPtr);
+
+  te::da::DataSourcePtr outputDataSource = te::da::DataSourceManager::getInstance().get(id_ds, "OGR", dsInfoPtr->getConnInfo());
+
+  //create rtree
+  std::auto_ptr<const te::map::LayerSchema> schema(layer->getSchema());
+  std::auto_ptr<te::da::DataSet> ds(layer->getData());
+
+  te::gm::GeometryProperty* gmProp = te::da::GetFirstGeomProperty(schema.get());
+
+  int geomIdx = te::da::GetPropertyPos(schema.get(), gmProp->getName());
+
+  te::da::PrimaryKey* pk = schema->getPrimaryKey();
+
+  int idIdx = te::da::GetPropertyPos(schema.get(), pk->getProperties()[0]->getName());
+
+  ds->moveBeforeFirst();
+
+  te::sam::rtree::Index<int> rtree;
+
+  struct CentroidInfo
+  {
+    te::gm::Point* point;
+    int parentId;
+    double area;
+    std::string type;
+  };
+
+  std::map<int, CentroidInfo> centroidInfoMap;
+
+  while (ds->moveNext())
+  {
+    std::string strId = ds->getAsString(idIdx);
+
+    int id = atoi(strId.c_str());
+
+    te::gm::Geometry* g = ds->getGeometry(geomIdx).release();
+    const te::gm::Envelope* box = g->getMBR();
+
+    rtree.insert(*box, id);
+
+    te::gm::Point* point = 0;
+
+    if (g->getGeomTypeId() == te::gm::MultiPointType)
+    {
+      te::gm::MultiPoint* mPoint = dynamic_cast<te::gm::MultiPoint*>(g);
+      point = dynamic_cast<te::gm::Point*>(mPoint->getGeometryN(0));
+    }
+    else if (g->getGeomTypeId() == te::gm::PointType)
+    {
+      point = dynamic_cast<te::gm::Point*>(g);
+    }
+
+    //save centroid info
+    CentroidInfo ci;
+    ci.parentId = ds->getInt32(2);
+    ci.area = ds->getDouble(3);
+    ci.type = ds->getString(4);
+    ci.point = point;
+
+    centroidInfoMap.insert(std::map<int, CentroidInfo>::value_type(id, ci));
+  }
+
+  //get all elements and check into rtree
+  std::set<int> rightValues;
+
+  ds->moveBeforeFirst();
+
+  while (ds->moveNext())
+  {
+    std::string strId = ds->getAsString(idIdx);
+
+    int id = atoi(strId.c_str());
+
+    std::auto_ptr<te::gm::Geometry> g = ds->getGeometry(geomIdx);
+    const te::gm::Envelope* box = g->getMBR();
+
+    std::vector<int> resultsTree;
+
+    rtree.search(*box, resultsTree);
+
+    int rightValue = -1;
+
+    for (std::size_t t = 0; t < resultsTree.size(); ++t)
+    {
+      if (resultsTree[t] > rightValue)
+      {
+        rightValue = resultsTree[t];
+      }
+    }
+
+    if (rightValue != -1)
+    {
+      rightValues.insert(rightValue);
+    }
+  }
+
+  //create dataset type
+  std::auto_ptr<te::da::DataSetType> dataSetType(new te::da::DataSetType(dataSetName));
+
+  te::dt::SimpleProperty* idProperty = new te::dt::SimpleProperty("id", te::dt::INT32_TYPE);
+  dataSetType->add(idProperty);
+
+  te::dt::SimpleProperty* originIdProperty = new te::dt::SimpleProperty("originId", te::dt::INT32_TYPE);
+  dataSetType->add(originIdProperty);
+
+  te::dt::SimpleProperty* areaProperty = new te::dt::SimpleProperty("area", te::dt::DOUBLE_TYPE);
+  dataSetType->add(areaProperty);
+
+  te::dt::StringProperty* typeProperty = new te::dt::StringProperty("type");
+  dataSetType->add(typeProperty);
+
+  te::gm::GeometryProperty* geomProperty = new te::gm::GeometryProperty("geom", layer->getSRID(), te::gm::PointType);
+  dataSetType->add(geomProperty);
+
+  std::string pkName = "pk_id";
+  pkName += "_" + dataSetName;
+  te::da::PrimaryKey* pkNew = new te::da::PrimaryKey(pkName, dataSetType.get());
+  pkNew->add(idProperty);
+
+  //create data set
+  std::auto_ptr<te::mem::DataSet> dataSetMem(new te::mem::DataSet(dataSetType.get()));
+
+  int count = 0;
+
+  for (std::set<int>::iterator it = rightValues.begin(); it != rightValues.end(); ++it)
+  {
+    CentroidInfo ci = centroidInfoMap[*it];
+
+    //create dataset item
+    te::mem::DataSetItem* item = new te::mem::DataSetItem(dataSetMem.get());
+
+    //set id
+    item->setInt32("id", count);
+
+    //set origin id
+    item->setInt32("originId", ci.parentId);
+
+    //set area
+    item->setDouble("area", ci.area);
+
+    //forest type
+    item->setString("type", ci.type);
+
+    //set geometry
+    item->setGeometry("geom", ci.point);
+
+    dataSetMem->add(item);
+
+    ++count;
+  }
+
+  dataSetMem->moveBeforeFirst();
+
+  //save dataset
+  std::map<std::string, std::string> options;
+  try
+  {
+    outputDataSource->createDataSet(dataSetType.get(), options);
+    outputDataSource->add(dataSetName, dataSetMem.get(), options);
+  }
+  catch (const std::exception& e)
+  {
+    return;
+  }
+  catch (...)
+  {
+    return;
+  }
+
+  centroidInfoMap.clear();
+}
+
+
+
