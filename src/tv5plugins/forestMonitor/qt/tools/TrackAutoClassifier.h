@@ -83,7 +83,7 @@ namespace te
 
             \note The tool will NOT take the ownership of the given pointers.
             */
-          TrackAutoClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr polyLayer, QObject* parent = 0);
+          TrackAutoClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr rasterLayer, te::map::AbstractLayerPtr dirLayer, QObject* parent = 0);
 
           /*! \brief Destructor. */
           ~TrackAutoClassifier();
@@ -115,7 +115,7 @@ namespace te
 
           te::gm::Geometry* createBuffer(te::gm::Point* rootPoint, te::da::ObjectId* objIdRoot, int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track);
 
-          void getTrackInfo();
+          void getTrackInfo(te::gm::Point* point0, te::gm::Point* point1);
 
           std::auto_ptr<te::gm::Geometry> getParcelGeeom(te::gm::Geometry* root, int& parcelId);
 
@@ -137,7 +137,7 @@ namespace te
 
           std::auto_ptr<te::da::DataSetType> createTreeDataSetType();
 
-          te::da::Where* getRestriction(int originId);
+          te::da::Where* getRestriction();
 
           void processDataSet(te::da::DataSet* ds);
 
@@ -145,6 +145,7 @@ namespace te
 
           te::map::AbstractLayerPtr m_coordLayer;         //!<The layer that will be classified.
           te::map::AbstractLayerPtr m_parcelLayer;        //!<The layer with geometry restriction.
+          te::map::AbstractLayerPtr m_dirLayer;           //!<The layer with direction information.
 
           te::sam::rtree::Index<int> m_centroidRtree;
           std::map<int, te::gm::Geometry*> m_centroidGeomMap;
@@ -184,6 +185,9 @@ namespace te
           double m_deltaTol;
 
           te::rst::Raster* m_ndviRaster;
+
+          te::sam::rtree::Index<int> m_angleRtree;
+          std::map<int, te::gm::Geometry*> m_angleGeomMap;
         };
 
       } // end namespace tv5plugins

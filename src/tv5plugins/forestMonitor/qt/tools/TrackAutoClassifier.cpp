@@ -23,12 +23,14 @@ or (at your option) any later version.
 #include <terralib/common/progress/TaskProgress.h>
 #include <terralib/dataaccess/dataset/DataSet.h>
 #include <terralib/dataaccess/dataset/DataSetType.h>
+#include <terralib/dataaccess/dataset/ObjectId.h>
 #include <terralib/dataaccess/query_h.h>
 #include <terralib/dataaccess/utils/Utils.h>
 #include <terralib/datatype/StringProperty.h>
 #include <terralib/geometry/Geometry.h>
 #include <terralib/geometry/GeometryProperty.h>
 #include <terralib/geometry/LineString.h>
+#include <terralib/geometry/MultiLineString.h>
 #include <terralib/geometry/MultiPoint.h>
 #include <terralib/geometry/MultiPolygon.h>
 #include <terralib/geometry/Point.h>
@@ -65,10 +67,11 @@ or (at your option) any later version.
 #define DELTA_TOL 0.1
 #define NDVI_THRESHOLD 120.0
 
-te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr polyLayer, QObject* parent)
+te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr rasterLayer, te::map::AbstractLayerPtr dirLayer, QObject* parent)
   : AbstractTool(display, parent),
   m_coordLayer(coordLayer),
   m_parcelLayer(parcelLayer),
+  m_dirLayer(dirLayer),
   m_track(0),
   m_point0(0),
   m_objId0(0),
@@ -100,7 +103,7 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::wi
   getStartIdValue();
 
   //get raster
-  std::auto_ptr<te::da::DataSet> ds = polyLayer->getData();
+  std::auto_ptr<te::da::DataSet> ds = rasterLayer->getData();
 
   m_ndviRaster = ds->getRaster(0).release();
 }
@@ -113,6 +116,9 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::~TrackAutoClassifier()
   m_centroidRtree.clear();
   te::common::FreeContents(m_centroidGeomMap);
   te::common::FreeContents(m_centroidObjIdMap);
+
+  m_angleRtree.clear();
+  te::common::FreeContents(m_angleGeomMap);
 
   delete m_point0;
   delete m_point1;
@@ -153,10 +159,10 @@ bool te::qt::plugins::tv5plugins::TrackAutoClassifier::eventFilter(QObject* watc
   {
     QKeyEvent* event = static_cast<QKeyEvent*>(e);
 
-    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Control) && m_classify && m_point0)
+    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Control) && m_point1 && m_point0)
       classifyObjects();
 
-    if ((event->key() == Qt::Key_Alt || event->key() == Qt::Key_AltGr) && m_classify && m_point0)
+    if ((event->key() == Qt::Key_Alt || event->key() == Qt::Key_AltGr))
       autoClassifyObjects();
 
     if (event->key() == Qt::Key_Escape)
@@ -242,9 +248,6 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::selectObjects(QMouseEvent
       {
         m_point1 = getPoint(dynamic_cast<te::gm::Geometry*>(g->clone()));
         m_objId1 = te::da::GenerateOID(dataset.get(), pnames);
-
-        getTrackInfo();
-
         break;
       }
 
@@ -291,11 +294,8 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::classifyObjects()
 
 void te::qt::plugins::tv5plugins::TrackAutoClassifier::autoClassifyObjects()
 {
-  //get parcel geom
-  int parcelId;
-  std::auto_ptr<te::gm::Geometry> parcelGeom = getParcelGeeom(m_point0, parcelId);
-
-  te::da::Where* whereClause = getRestriction(parcelId);
+  //get restriction
+  te::da::Where* whereClause = getRestriction();
 
   std::auto_ptr<te::da::DataSet> dsResult = m_coordLayer->getData(whereClause->getExp());
 
@@ -452,13 +452,11 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
 
   //get parcel geom
   int parcelId;
-  std::auto_ptr<te::gm::Geometry> parcelGeom = getParcelGeeom(m_point0, parcelId);
+  std::auto_ptr<te::gm::Geometry> parcelGeom = getParcelGeeom(rootPoint, parcelId);
 
   parcelGeom->setSRID(srid);
 
   te::da::GetEmptyOIDSet(schema.get(), m_track);
-
-  bool insideParcel = parcelGeom->covers(m_point0);
 
   track.push_back(new te::gm::Point(*rootPoint));
 
@@ -470,10 +468,67 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
 
   QApplication::setOverrideCursor(Qt::WaitCursor);
 
+  //calculate track info angle
+  if (m_point0 && m_point1)
+  {
+    getTrackInfo(m_point0, m_point1);
+  }
+  else
+  {
+    if (parcelGeom->getSRID() != m_dirLayer->getSRID())
+      parcelGeom->transform(m_dirLayer->getSRID());
+
+    te::gm::Envelope ext(*parcelGeom->getMBR());
+
+    std::vector<int> results;
+
+    m_angleRtree.search(ext, results);
+
+    for (size_t t = 0; t < results.size(); ++t)
+    {
+      std::map<int, te::gm::Geometry*>::iterator it = m_angleGeomMap.find(results[t]);
+
+      if (it != m_angleGeomMap.end())
+      {
+        if (parcelGeom->contains(it->second))
+        {
+          te::gm::MultiLineString* mLine = dynamic_cast<te::gm::MultiLineString*>(it->second);
+
+          if (mLine && mLine->getNumGeometries() != 0)
+          {
+            te::gm::LineString* line = dynamic_cast<te::gm::LineString*>(mLine->getGeometryN(0));
+
+            if (line && line->size() >= 2)
+            {
+              std::auto_ptr<te::gm::Point> first(line->getPointN(0));
+              std::auto_ptr<te::gm::Point> last(line->getPointN(1));
+
+              if (first->getSRID() != m_coordLayer->getSRID())
+                first->transform(m_coordLayer->getSRID());
+
+              if (last->getSRID() != m_coordLayer->getSRID())
+                last->transform(m_coordLayer->getSRID());
+
+              getTrackInfo(first.get(), last.get());
+
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+
   double dx = m_dx;
   double dy = m_dy;
 
   m_deadCount = 0;
+
+  if (parcelGeom->getSRID() != rootPoint->getSRID())
+    parcelGeom->transform(rootPoint->getSRID());
+
+  bool insideParcel = true;
 
   while (insideParcel)
   {
@@ -668,23 +723,20 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
   return lineBuffer->buffer(distanceBuffer, 16, te::gm::CapButtType);
 }
 
-void te::qt::plugins::tv5plugins::TrackAutoClassifier::getTrackInfo()
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::getTrackInfo(te::gm::Point* point0, te::gm::Point* point1)
 {
   if (m_distLineEdit->text().isEmpty())
     m_distance = DISTANCE;
   else
     m_distance = m_distLineEdit->text().toDouble();
   
-  if (m_point1)
-  {
-    double bigDistance = m_point0->distance(m_point1);
+  double bigDistance = point0->distance(point1);
 
-    double big_dx = m_point1->getX() - m_point0->getX();
-    double big_dy = m_point1->getY() - m_point0->getY();
+  double big_dx = point1->getX() - point0->getX();
+  double big_dy = point1->getY() - point0->getY();
 
-    m_dx = m_distance * big_dx / bigDistance;
-    m_dy = m_distance * big_dy / bigDistance;
-  }
+  m_dx = m_distance * big_dx / bigDistance;
+  m_dy = m_distance * big_dy / bigDistance;
 
   m_classify = true;
 }
@@ -699,8 +751,8 @@ std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackAutoClassifier
 
   te::gm::Envelope reprojectedEnvelope(envelope);
 
-  if ((m_parcelLayer->getSRID() != TE_UNKNOWN_SRS) && (m_display->getSRID() != TE_UNKNOWN_SRS) && (m_parcelLayer->getSRID() != m_display->getSRID()))
-    reprojectedEnvelope.transform(m_display->getSRID(), m_parcelLayer->getSRID());
+  if ((root->getSRID() != TE_UNKNOWN_SRS) && (m_parcelLayer->getSRID() != TE_UNKNOWN_SRS) && (root->getSRID() != m_parcelLayer->getSRID()))
+    reprojectedEnvelope.transform(root->getSRID(), m_parcelLayer->getSRID());
 
   if (!reprojectedEnvelope.intersects(m_parcelLayer->getExtent()))
     throw;
@@ -730,7 +782,10 @@ std::auto_ptr<te::gm::Geometry> te::qt::plugins::tv5plugins::TrackAutoClassifier
     g = dataset->getGeometry(gp->getName());
 
     if (g->getSRID() == TE_UNKNOWN_SRS)
-      g->setSRID(m_coordLayer->getSRID());
+      g->setSRID(m_parcelLayer->getSRID());
+
+    if (g->getSRID() != root->getSRID())
+      g->transform(root->getSRID());
 
     if (g->covers(root))
     {
@@ -869,10 +924,13 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::createRTree()
 
   te::common::FreeContents(m_centroidGeomMap);
   te::common::FreeContents(m_centroidObjIdMap);
+  te::common::FreeContents(m_angleGeomMap);
 
   m_centroidRtree.clear();
   m_centroidGeomMap.clear();
   m_centroidObjIdMap.clear();
+  m_angleRtree.clear();
+  m_angleGeomMap.clear();
 
   //create rtree
   std::auto_ptr<const te::map::LayerSchema> schema(m_coordLayer->getSchema());
@@ -907,6 +965,32 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::createRTree()
     m_centroidGeomMap.insert(std::map<int, te::gm::Geometry*>::value_type(id, g));
 
     m_centroidObjIdMap.insert(std::map<int, te::da::ObjectId*>::value_type(id, te::da::GenerateOID(ds.get(), pnames)));
+  }
+
+  //get direction geometries
+  std::auto_ptr<const te::map::LayerSchema> schemaDir(m_dirLayer->getSchema());
+  std::auto_ptr<te::da::DataSet> dsDir(m_dirLayer->getData());
+
+  te::gm::GeometryProperty* gmPropDir = te::da::GetFirstGeomProperty(schemaDir.get());
+  int geomDirIdx = te::da::GetPropertyPos(schemaDir.get(), gmPropDir->getName());
+
+  te::da::PrimaryKey* pkDir = schemaDir->getPrimaryKey();
+  int idDirIdx = te::da::GetPropertyPos(schemaDir.get(), pkDir->getProperties()[0]->getName());
+
+  dsDir->moveBeforeFirst();
+
+  while (dsDir->moveNext())
+  {
+    std::string strId = dsDir->getAsString(idDirIdx);
+
+    int id = atoi(strId.c_str());
+
+    te::gm::Geometry* g = dsDir->getGeometry(geomDirIdx).release();
+    const te::gm::Envelope* box = g->getMBR();
+
+    m_angleRtree.insert(*box, id);
+
+    m_angleGeomMap.insert(std::map<int, te::gm::Geometry*>::value_type(id, g));
   }
 
   QApplication::restoreOverrideCursor();
@@ -1241,7 +1325,7 @@ std::auto_ptr<te::da::DataSetType> te::qt::plugins::tv5plugins::TrackAutoClassif
   return dataSetType;
 }
 
-te::da::Where* te::qt::plugins::tv5plugins::TrackAutoClassifier::getRestriction(int originId)
+te::da::Where* te::qt::plugins::tv5plugins::TrackAutoClassifier::getRestriction()
 {
   // select * from pontos where (originId = X E ( tipo = CREATED OR (tipo = UNKNOWN E (area > 0.8 E area < 1.0))) order by tipo
 
@@ -1290,20 +1374,20 @@ te::da::Where* te::qt::plugins::tv5plugins::TrackAutoClassifier::getRestriction(
   ////tipo = CREATED OR (tipo = UNKNOWN E (area > 0.8 E area < 1.0))
   //te::da::Or* orType = new te::da::Or(typeCreatedEqual, andType);
 
-  //originId = X
-  te::da::PropertyName* propOriginId = new te::da::PropertyName("originId");
+  ////originId = X
+  //te::da::PropertyName* propOriginId = new te::da::PropertyName("originId");
 
-  //UNKNOWN
-  te::da::Literal* originIdValue = new te::da::LiteralInt32(originId);
+  ////UNKNOWN
+  //te::da::Literal* originIdValue = new te::da::LiteralInt32(originId);
 
-  //type equal
-  te::da::EqualTo* originEqual = new te::da::EqualTo(propOriginId, originIdValue);
+  ////type equal
+  //te::da::EqualTo* originEqual = new te::da::EqualTo(propOriginId, originIdValue);
 
-  //originId = X E ( tipo = CREATED OR (tipo = UNKNOWN E (area > 0.8 E area < 1.0)))
-  te::da::And* andOrigin = new te::da::And(originEqual, typeCreatedEqual);
+  ////originId = X E ( tipo = CREATED OR (tipo = UNKNOWN E (area > 0.8 E area < 1.0)))
+  //te::da::And* andOrigin = new te::da::And(originEqual, typeCreatedEqual);
 
   //create where
-  te:da::Where* where = new te::da::Where(andOrigin);
+  te::da::Where* where = new te::da::Where(typeCreatedEqual);
 
   return where;
 }

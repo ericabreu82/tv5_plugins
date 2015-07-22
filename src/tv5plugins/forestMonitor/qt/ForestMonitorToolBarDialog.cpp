@@ -72,6 +72,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::setLayerList(std::
   m_ui->m_layerParcelComboBox->clear();
   m_ui->m_layerPointsComboBox->clear();
   m_ui->m_layerPolyComboBox->clear();
+  m_ui->m_layerDirComboBox->clear();
 
   //fill combos
   std::list<te::map::AbstractLayerPtr>::iterator it = list.begin();
@@ -88,6 +89,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::setLayerList(std::
       {
         m_ui->m_layerParcelComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
         m_ui->m_layerPointsComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
+        m_ui->m_layerDirComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
       }
       else if (dsType->hasRaster())
       {
@@ -201,10 +203,13 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackAutoClassif
   QVariant varLayerPoly = m_ui->m_layerPolyComboBox->itemData(m_ui->m_layerPolyComboBox->currentIndex(), Qt::UserRole);
   te::map::AbstractLayerPtr layerPoly = varLayerPoly.value<te::map::AbstractLayerPtr>();
 
+  QVariant varLayerDir = m_ui->m_layerDirComboBox->itemData(m_ui->m_layerDirComboBox->currentIndex(), Qt::UserRole);
+  te::map::AbstractLayerPtr layerDir = varLayerDir.value<te::map::AbstractLayerPtr>();
+
   QPixmap pxmap = QIcon::fromTheme("pointer-selection").pixmap(QSize(16, 16));
   QCursor cursor(pxmap, 0, 0);
 
-  te::qt::plugins::tv5plugins::TrackAutoClassifier* tool = new te::qt::plugins::tv5plugins::TrackAutoClassifier(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, layerPoly);
+  te::qt::plugins::tv5plugins::TrackAutoClassifier* tool = new te::qt::plugins::tv5plugins::TrackAutoClassifier(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, layerPoly, layerDir);
   tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distBufferLineEdit, m_ui->m_distTolLineEdit, m_ui->m_polyAreaMinLineEdit, m_ui->m_polyAreaMaxLineEdit, m_ui->m_maxDeadLineEdit, m_ui->m_deadTolLineEdit, m_ui->m_thresholdLineEdit);
   m_appDisplay->setCurrentTool(tool);
 }

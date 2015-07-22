@@ -273,6 +273,9 @@ void te::qt::plugins::tv5plugins::Creator::drawSelecteds()
       if (g->getSRID() == TE_UNKNOWN_SRS)
         g->setSRID(m_coordLayer->getSRID());
 
+      if (g->getSRID() != m_display->getSRID())
+        g->transform(m_display->getSRID());
+
       canvas.draw(g.get());
     }
   }
@@ -316,7 +319,10 @@ bool te::qt::plugins::tv5plugins::Creator::getParcelParentId(te::gm::Point* poin
     g = dataset->getGeometry(gp->getName());
 
     if (g->getSRID() == TE_UNKNOWN_SRS)
-      g->setSRID(m_coordLayer->getSRID());
+      g->setSRID(m_parcelLayer->getSRID());
+
+    if (g->getSRID() != point->getSRID())
+      g->transform(point->getSRID());
 
     if (g->covers(point))
     {
