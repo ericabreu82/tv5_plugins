@@ -28,7 +28,7 @@
 //TerraLib Includes
 #include <terralib/common/StringUtils.h>
 #include <terralib/raster/Utils.h>
-#include <terralib/qt/widgets/canvas/MultiThreadMapDisplay.h>
+#include <terralib/qt/widgets/canvas/MapDisplay.h>
 #include "TileGeneratorService.h"
 #include "Tile.h"
 
@@ -233,7 +233,7 @@ void te::qt::plugins::tv5plugins::TileGeneratorService::checkParameters()
 
 void te::qt::plugins::tv5plugins::TileGeneratorService::buildDisplay()
 {
-  m_display = new te::qt::widgets::MultiThreadMapDisplay(QSize(m_tileSize, m_tileSize), false);
+  m_display = new te::qt::widgets::MapDisplay(QSize(m_tileSize, m_tileSize), false);
 
   m_display->setLayerList(m_layers);
 

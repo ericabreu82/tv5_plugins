@@ -27,7 +27,7 @@
 #define __TERRALIB_QT_PLUGINS_THIRDPARTY_INTERNAL_CONFIG_H
 
 // TerraLib
-#include <terralib/terralib_config.h>
+#include <terralib_config.h>
 
 
 /*!

@@ -241,8 +241,21 @@ void te::qt::plugins::tv5plugins::UpdateClass::updateClassObjects()
       //set area
       item->setDouble(3, dataset->getDouble("area"));
 
+      std::string currentClass = dataset->getString("type");
+
+      std::string outputClass;
+
+      if (currentClass == "LIVE")
+      {
+        outputClass = "DEAD";
+      }
+      else
+      {
+        outputClass = "LIVE";
+      }
+
       //forest type
-      item->setString(4, "LIVE");
+      item->setString(4, outputClass);
 
       //set geometry
       item->setGeometry(5, g.release());
