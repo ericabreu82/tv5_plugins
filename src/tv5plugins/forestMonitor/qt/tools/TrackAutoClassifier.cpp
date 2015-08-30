@@ -78,7 +78,8 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::wi
   m_point1(0),
   m_objId1(0),
   m_starterId(0),
-  m_roots(0)
+  m_roots(0),
+  m_panStarted(false)
 {
   m_distLineEdit = 0;
   m_distanceBufferLineEdit = 0;
@@ -154,6 +155,22 @@ bool te::qt::plugins::tv5plugins::TrackAutoClassifier::eventFilter(QObject* watc
 
       return true;
     }
+    else
+    {
+      return panMouseReleaseEvent(event);
+    }
+  }
+  else if (e->type() == QEvent::MouseButtonPress)
+  {
+    QMouseEvent* event = static_cast<QMouseEvent*>(e);
+
+    return panMousePressEvent(event);
+  }
+  else if (e->type() == QEvent::MouseMove)
+  {
+    QMouseEvent* event = static_cast<QMouseEvent*>(e);
+
+    return panMouseMoveEvent(event);
   }
   else if (e->type() == QEvent::KeyPress)
   {
@@ -1518,4 +1535,84 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::processDataSet(te::da::Da
   m_classify = true;
 
   createRTree();
+}
+
+bool te::qt::plugins::tv5plugins::TrackAutoClassifier::panMousePressEvent(QMouseEvent* e)
+{
+  if (e->button() != Qt::MiddleButton)
+    return false;
+
+  m_panStarted = true;
+  m_origin = e->pos();
+  m_delta *= 0;
+  m_actionCursor.setShape(Qt::SizeAllCursor);
+
+  // Adjusting the action cursor
+  if (m_actionCursor.shape() != Qt::BlankCursor)
+    m_display->setCursor(m_actionCursor);
+
+  return true;
+}
+
+bool te::qt::plugins::tv5plugins::TrackAutoClassifier::panMouseMoveEvent(QMouseEvent* e)
+{
+  if (!m_panStarted)
+    return false;
+
+  // Calculates the delta value
+  m_delta = e->pos() - m_origin;
+
+  // Gets the draft map display pixmap
+  QPixmap* draft = m_display->getDraftPixmap();
+  draft->fill();
+
+  // Gets the current result of map display, i.e. The draw layer composition.
+  QPixmap* result = m_display->getDisplayPixmap();
+
+  // Let's draw!
+  QPainter painter(draft);
+  painter.drawPixmap(0, 0, *result); // Draw the current result.
+  painter.save();
+  painter.setOpacity(0.3); // Adjusting transparency feedback.
+  painter.drawPixmap(m_delta, *result); // Draw the current result translated.
+  painter.restore();
+
+  m_display->repaint();
+
+  return true;
+}
+
+bool te::qt::plugins::tv5plugins::TrackAutoClassifier::panMouseReleaseEvent(QMouseEvent* e)
+{
+  m_panStarted = false;
+
+  // Roll back the default tool cursor
+  m_display->setCursor(m_cursor);
+
+  if (e->button() != Qt::MiddleButton || m_delta.isNull())
+    return false;
+
+  // Clears the draft map display pixmap
+  QPixmap* draft = m_display->getDraftPixmap();
+  draft->fill(Qt::transparent);
+
+  // Calculates the extent translated
+  QRect rec(0, 0, m_display->width(), m_display->height());
+  QPoint center = rec.center();
+  center -= m_delta;
+  rec.moveCenter(center);
+
+  // Conversion to world coordinates
+  QPointF ll(rec.left(), rec.bottom());
+  QPointF ur(rec.right(), rec.top());
+  ll = m_display->transform(ll);
+  ur = m_display->transform(ur);
+
+  // Updates the map display with the new extent
+  te::gm::Envelope envelope(ll.x(), ll.y(), ur.x(), ur.y());
+  m_display->setExtent(envelope);
+
+  drawSelecteds();
+
+  return true;
 }

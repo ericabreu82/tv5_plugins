@@ -109,6 +109,12 @@ namespace te
 
           void cancelOperation();
 
+          bool panMousePressEvent(QMouseEvent* e);
+
+          bool panMouseMoveEvent(QMouseEvent* e);
+
+          bool panMouseReleaseEvent(QMouseEvent* e);
+
         private:
 
           te::map::AbstractLayerPtr m_layer;        //!<The layer that will be queried.
@@ -116,6 +122,12 @@ namespace te
           std::auto_ptr<te::mem::DataSet> m_dataSet;
 
           //te::da::ObjectIdSet* m_objIdSet;
+
+          //pan attributes
+          bool m_panStarted;      //!< Flag that indicates if pan operation was started.
+          QPoint m_origin;        //!< Origin point on mouse pressed.
+          QPoint m_delta;         //!< Difference between pressed point and destination point on mouse move.
+          QCursor m_actionCursor; //!< An optional cursor to be used during the pan user action.
         };
 
       } // end namespace tv5plugins

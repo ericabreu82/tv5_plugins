@@ -7,6 +7,7 @@ set(TV5PLG_ABSOLUTE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 include_directories(
   ${TV5PLG_ABSOLUTE_ROOT_DIR}/src
   ${terralib_INCLUDE_DIRS}
+  ${terralib_DIR}
   ${Boost_INCLUDE_DIR}
 )
 
