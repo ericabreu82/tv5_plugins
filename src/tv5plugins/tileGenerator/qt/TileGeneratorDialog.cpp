@@ -24,6 +24,8 @@
 */
 
 // TerraLib
+#include <terralib/qt/widgets/tools/ExtentAcquire.h>
+
 #include "../core/TileGeneratorService.h"
 #include "TileGeneratorDialog.h"
 #include "ui_TileGeneratorDialogForm.h"
@@ -41,6 +43,7 @@ te::qt::plugins::tv5plugins::TileGeneratorDialog::TileGeneratorDialog(QWidget* p
   m_ui->setupUi(this);
 
   m_ui->m_dirToolButton->setIcon(QIcon::fromTheme("folder-open"));
+  m_ui->m_toolButton->setIcon(QIcon::fromTheme("pointer"));
 
   //set zoom level range
   m_ui->m_zoomMinSpinBox->setMinimum(0);
@@ -63,6 +66,7 @@ te::qt::plugins::tv5plugins::TileGeneratorDialog::TileGeneratorDialog(QWidget* p
     m_ui->m_formatComboBox->addItem(list[i].constData());
 
   //connects
+  connect(m_ui->m_toolButton, SIGNAL(toggled(bool)), this, SLOT(onToolButtonClicked(bool)));
   connect(m_ui->m_dirToolButton, SIGNAL(clicked()), this, SLOT(onDirToolButtonClicked()));
   connect(m_ui->m_validatePushButton, SIGNAL(clicked()), this, SLOT(onValidatePushButtonClicked()));
   connect(m_ui->m_okPushButton, SIGNAL(clicked()), this, SLOT(onOkPushButtonClicked()));
@@ -85,9 +89,38 @@ void te::qt::plugins::tv5plugins::TileGeneratorDialog::setExtentInfo(te::gm::Env
   m_ui->m_uryLineEdit->setText(QString::number(env.getUpperRightY(), 'f', 5));
 }
 
+void te::qt::plugins::tv5plugins::TileGeneratorDialog::setMapDisplay(te::qt::af::MapDisplay* mapDisplay)
+{
+  m_appDisplay = mapDisplay;
+}
+
 void te::qt::plugins::tv5plugins::TileGeneratorDialog::setLayerList(std::list<te::map::AbstractLayerPtr> list)
 {
   m_layerList = list;
+}
+
+void te::qt::plugins::tv5plugins::TileGeneratorDialog::onEnvelopeAcquired(te::gm::Envelope env)
+{
+  m_env = env;
+
+  m_ui->m_llxLineEdit->setText(QString::number(env.getLowerLeftX(), 'f', 5));
+  m_ui->m_llyLineEdit->setText(QString::number(env.getLowerLeftY(), 'f', 5));
+  m_ui->m_urxLineEdit->setText(QString::number(env.getUpperRightX(), 'f', 5));
+  m_ui->m_uryLineEdit->setText(QString::number(env.getUpperRightY(), 'f', 5));
+}
+
+void te::qt::plugins::tv5plugins::TileGeneratorDialog::onToolButtonClicked(bool flag)
+{
+  if (!flag)
+    return;
+
+  if (!m_appDisplay)
+    return;
+
+  te::qt::widgets::ExtentAcquire* ea = new te::qt::widgets::ExtentAcquire(m_appDisplay->getDisplay(), Qt::BlankCursor);
+  m_appDisplay->setCurrentTool(ea);
+
+  connect(ea, SIGNAL(extentAcquired(te::gm::Envelope)), this, SLOT(onEnvelopeAcquired(te::gm::Envelope)));
 }
 
 void te::qt::plugins::tv5plugins::TileGeneratorDialog::onDirToolButtonClicked()

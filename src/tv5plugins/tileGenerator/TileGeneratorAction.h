@@ -27,6 +27,7 @@
 #define __TE_QT_PLUGINS_THIRDPARTY_INTERNAL_TILEGENERATORACTION_H
 
 // TerraLib
+#include "qt/TileGeneratorDialog.h"
 #include "../Config.h"
 #include "../AbstractAction.h"
 
@@ -57,6 +58,10 @@ namespace te
           protected slots:
 
             virtual void onActionActivated(bool checked);
+
+         protected:
+
+           te::qt::plugins::tv5plugins::TileGeneratorDialog*  m_dlg;
         };
 
       } // end namespace thirdParty

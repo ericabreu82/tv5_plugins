@@ -29,6 +29,7 @@
 // TerraLib
 #include <terralib/geometry/Envelope.h>
 #include <terralib/maptools/AbstractLayer.h>
+#include <terralib/qt/af/connectors/MapDisplay.h>
 #include "../../Config.h"
 
 // STL
@@ -68,7 +69,13 @@ namespace te
 
             void setLayerList(std::list<te::map::AbstractLayerPtr> list);
 
+            void setMapDisplay(te::qt::af::MapDisplay* mapDisplay);
+
           protected slots:
+
+            void onEnvelopeAcquired(te::gm::Envelope env);
+
+            void onToolButtonClicked(bool flag);
 
             void onDirToolButtonClicked();
 
@@ -81,6 +88,8 @@ namespace te
             std::auto_ptr<Ui::TileGeneratorDialogForm> m_ui;
 
             std::list<te::map::AbstractLayerPtr> m_layerList;
+
+            te::qt::af::MapDisplay* m_appDisplay;
 
             te::gm::Envelope m_env;
 

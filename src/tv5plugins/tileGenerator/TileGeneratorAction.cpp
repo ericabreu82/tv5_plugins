@@ -29,10 +29,7 @@
 #include <terralib/qt/af/BaseApplication.h>
 #include <terralib/qt/af/Project.h>
 #include <terralib/qt/widgets/canvas/MapDisplay.h>
-#include "qt/TileGeneratorDialog.h"
 #include "TileGeneratorAction.h"
-
-
 
 // Qt
 #include <QtCore/QObject>
@@ -43,10 +40,13 @@
 te::qt::plugins::tv5plugins::TileGeneratorAction::TileGeneratorAction(QMenu* menu):te::qt::plugins::tv5plugins::AbstractAction(menu)
 {
   createAction(tr("Tile Generator...").toStdString(), "");
+
+  m_dlg = 0;
 }
 
 te::qt::plugins::tv5plugins::TileGeneratorAction::~TileGeneratorAction()
 {
+  delete m_dlg;
 }
 
 void te::qt::plugins::tv5plugins::TileGeneratorAction::onActionActivated(bool checked)
@@ -72,11 +72,16 @@ void te::qt::plugins::tv5plugins::TileGeneratorAction::onActionActivated(bool ch
   }
 
   //show interface
-  te::qt::plugins::tv5plugins::TileGeneratorDialog dlg(te::qt::af::ApplicationController::getInstance().getMainWindow());
+  if (m_dlg)
+    delete m_dlg;
 
-  dlg.setExtentInfo(env, srid);
+  m_dlg = new te::qt::plugins::tv5plugins::TileGeneratorDialog(te::qt::af::ApplicationController::getInstance().getMainWindow());
 
-  dlg.setLayerList(list);
+  m_dlg->setExtentInfo(env, srid);
 
-  dlg.exec();
+  m_dlg->setLayerList(list);
+
+  m_dlg->setMapDisplay(ba->getDisplay());
+
+  m_dlg->show();
 }
