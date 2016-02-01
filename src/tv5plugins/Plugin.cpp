@@ -54,6 +54,10 @@
   #include "photoIndex/PhotoIndexAction.h"
 #endif
 
+#ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_PROXIMITY
+#include "proximity/ProximityAction.h"
+#endif
+
 // QT
 #include <QMenu>
 #include <QMenuBar>
@@ -130,6 +134,10 @@ void te::qt::plugins::tv5plugins::Plugin::registerActions()
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_PHOTOINDEX
   m_photoIndex = new te::qt::plugins::tv5plugins::PhotoIndexAction(m_menu);
 #endif
+
+#ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_PROXIMITY
+  m_proximity = new te::qt::plugins::tv5plugins::ProximityAction(m_menu);
+#endif
 }
 
 void  te::qt::plugins::tv5plugins::Plugin::unRegisterActions()
@@ -156,6 +164,10 @@ void  te::qt::plugins::tv5plugins::Plugin::unRegisterActions()
 
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_PHOTOINDEX
     delete m_photoIndex;
+#endif
+
+#ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_PROXIMITY
+    delete m_proximity;
 #endif
 }
 

@@ -47,6 +47,7 @@ namespace te
         class ForestMonitorToolBarAction;
         class NDVIAction;
         class PhotoIndexAction;
+        class ProximityAction;
         class TileGeneratorAction;
         
         class Plugin : public te::plugin::Plugin
@@ -86,6 +87,7 @@ namespace te
             te::qt::plugins::tv5plugins::ForestMonitorToolBarAction* m_forestMonitorToolBar;//!< Forest Monitor Tool Bar Operation Process Action
             te::qt::plugins::tv5plugins::NDVIAction* m_ndvi;                                //!< NDVI Operation Process Action
             te::qt::plugins::tv5plugins::PhotoIndexAction* m_photoIndex;                    //!< Photo Index Operation Process Action
+            te::qt::plugins::tv5plugins::ProximityAction* m_proximity;                      //!< Proximity Operation Process Action
         };
 
       } // end namespace thirdParty

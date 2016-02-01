@@ -92,10 +92,34 @@ file(GLOB TV5PLG_PHOTOINDEX_UI_FILES  ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins
 
 source_group("UI Files\\photoIndex"  FILES ${TV5PLG_PHOTOINDEX_UI_FILES})
 
+#proximity
+file(GLOB TV5PLG_PROXIMITY_SRC_FILES ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/proximity/*.cpp)
+file(GLOB TV5PLG_PROXIMITY_HDR_FILES ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/proximity/*.h)
+
+source_group("Source Files\\proximity"  FILES ${TV5PLG_PROXIMITY_SRC_FILES})
+source_group("Header Files\\proximity"  FILES ${TV5PLG_PROXIMITYX_HDR_FILES})
+
+file(GLOB TV5PLG_PROXIMITY_CORE_SRC_FILES ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/proximity/core/*.cpp)
+file(GLOB TV5PLG_PROXIMITY_CORE_HDR_FILES ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/proximity/core/*.h)
+
+source_group("Source Files\\proximity\\core"  FILES ${TV5PLG_PROXIMITY_CORE_SRC_FILES})
+source_group("Header Files\\proximity\\core"  FILES ${TV5PLG_PROXIMITY_CORE_HDR_FILES})
+
+file(GLOB TV5PLG_PROXIMITY_QT_SRC_FILES ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/proximity/qt/*.cpp)
+file(GLOB TV5PLG_PROXIMITY_QT_HDR_FILES ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/proximity/qt/*.h)
+
+source_group("Source Files\\proximity\\qt"  FILES ${TV5PLG_PROXIMITY_QT_SRC_FILES})
+source_group("Header Files\\proximity\\qt"  FILES ${TV5PLG_PROXIMITY_QT_HDR_FILES})
+
+file(GLOB TV5PLG_PROXIMITY_UI_FILES  ${TV5PLG_ABSOLUTE_ROOT_DIR}/src/tv5plugins/proximity/qt/ui/*.ui)
+
+source_group("UI Files\\proximity"  FILES ${TV5PLG_PROXIMITY_UI_FILES})
+
 # uic'ing
 QT5_WRAP_UI(TV5PLG_GEN_HDR_FILES ${TV5PLG_TILE_UI_FILES}
 								   ${TV5PLG_FOREST_UI_FILES}
-								   ${TV5PLG_PHOTOINDEX_UI_FILES})
+								   ${TV5PLG_PHOTOINDEX_UI_FILES}
+								   ${TV5PLG_PROXIMITY_UI_FILES})
 
 set(TV5PLG_FILES ${TV5PLG_SRC_FILES} 
 				   ${TV5PLG_HDR_FILES} 
@@ -119,6 +143,12 @@ set(TV5PLG_FILES ${TV5PLG_SRC_FILES}
 				   ${TV5PLG_PHOTOINDEX_CORE_HDR_FILES}
 				   ${TV5PLG_PHOTOINDEX_QT_SRC_FILES} 
 				   ${TV5PLG_PHOTOINDEX_QT_HDR_FILES}
+				   ${TV5PLG_PROXIMITY_SRC_FILES} 
+				   ${TV5PLG_PROXIMITY_HDR_FILES} 
+				   ${TV5PLG_PROXIMITY_CORE_SRC_FILES} 
+				   ${TV5PLG_PROXIMITY_CORE_HDR_FILES}
+				   ${TV5PLG_PROXIMITY_QT_SRC_FILES} 
+				   ${TV5PLG_PROXIMITY_QT_HDR_FILES}
 				   ${TV5PLG_GEN_HDR_FILES})
 				   
 add_library(tv5_3rdparty_plugins SHARED ${TV5PLG_FILES})

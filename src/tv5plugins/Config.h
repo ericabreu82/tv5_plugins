@@ -73,6 +73,13 @@
 #define TE_QT_PLUGIN_THIRDPARTY_HAVE_PHOTOINDEX
 
 /*!
+\def TE_QT_PLUGIN_THIRDPARTY_HAVE_PROXIMITY
+
+\brief It defines if the third Party Qt Plugin has the proximity operation.
+*/
+#define TE_QT_PLUGIN_THIRDPARTY_HAVE_PROXIMITY
+
+/*!
   \def TE_QT_PLUGIN_THIRDPARTY_PLUGIN_NAME
 
   \brief It contains the plugin name.
