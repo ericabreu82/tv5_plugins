@@ -467,6 +467,18 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
     m_deltaTol = m_deadTolLineEdit->text().toDouble();
   }
 
+  //get distance buffer info
+  double distanceBuffer = 0.;
+
+  if (m_distanceBufferLineEdit->text().isEmpty())
+  {
+    distanceBuffer = DISTANCE_BUFFER;
+  }
+  else
+  {
+    distanceBuffer = m_distanceBufferLineEdit->text().toDouble();
+  }
+
   //get parcel geom
   int parcelId;
   std::auto_ptr<te::gm::Geometry> parcelGeom = getParcelGeeom(rootPoint, parcelId);
@@ -574,9 +586,32 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
     ext.m_ury += (m_distance * toleranceFactor);
 
     //check on tree
+    std::vector<int> resultsTreeObjs;
+
+    m_centroidRtree.search(ext, resultsTreeObjs);
+
+    //filter using a line buffer
+    std::auto_ptr<te::gm::LineString> lineSearchBuffer(new te::gm::LineString(2, te::gm::LineStringType, srid));
+    lineSearchBuffer->setPoint(0, rootPoint->getX() + (dx / 2.), rootPoint->getY() + (dy / 2.));
+    lineSearchBuffer->setPoint(1, rootPoint->getX() + (dx / 2.) + dx, rootPoint->getY() + (dy / 2.) + dy);
+    te::gm::Geometry* geomLineSearchBuffer = lineSearchBuffer->buffer(distanceBuffer / 2., 4, te::gm::CapButtType);
+
     std::vector<int> resultsTree;
 
-    m_centroidRtree.search(ext, resultsTree);
+    for (std::size_t t = 0; t < resultsTreeObjs.size(); ++t)
+    {
+      std::map<int, te::gm::Geometry*>::iterator it = m_centroidGeomMap.find(resultsTreeObjs[t]);
+
+      if (it != m_centroidGeomMap.end())
+      {
+        te::gm::Geometry* g = it->second;
+
+        if (geomLineSearchBuffer->covers(g))
+        {
+          resultsTree.push_back(resultsTreeObjs[t]);
+        }
+      }
+    }
 
     if (resultsTree.empty())
     {
@@ -724,18 +759,6 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
     ++count;
     ++it;
   }
-
-  double distanceBuffer = 0.;
-
-  if (m_distanceBufferLineEdit->text().isEmpty())
-  {
-    distanceBuffer = DISTANCE_BUFFER;
-  }
-  else
-  {
-    distanceBuffer = m_distanceBufferLineEdit->text().toDouble();
-  }
-
 
   return lineBuffer->buffer(distanceBuffer, 16, te::gm::CapButtType);
 }
