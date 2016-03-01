@@ -51,6 +51,13 @@ namespace te
       namespace tv5plugins
       {
 
+        enum CreatorType
+        {
+          CREATED_TYPE,
+          LIVE_TYPE,
+          DEAD_TYPE
+        };
+
         /*!
           \class Info
 
@@ -79,7 +86,7 @@ namespace te
 
             \note The tool will NOT take the ownership of the given pointers.
             */
-          Creator(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, QObject* parent = 0);
+          Creator(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::qt::plugins::tv5plugins::CreatorType type, QObject* parent = 0);
 
           /*! \brief Destructor. */
           ~Creator();
@@ -123,6 +130,8 @@ namespace te
           std::auto_ptr<te::mem::DataSet> m_dataSet;
 
           int m_starterId;
+
+          te::qt::plugins::tv5plugins::CreatorType m_type;
 
           //pan attributes
           bool m_panStarted;      //!< Flag that indicates if pan operation was started.

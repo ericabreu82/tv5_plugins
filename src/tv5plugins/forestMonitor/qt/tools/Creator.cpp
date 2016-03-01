@@ -51,7 +51,7 @@
 #include <cassert>
 #include <memory>
 
-te::qt::plugins::tv5plugins::Creator::Creator(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, QObject* parent)
+te::qt::plugins::tv5plugins::Creator::Creator(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::qt::plugins::tv5plugins::CreatorType type , QObject* parent)
   : AbstractTool(display, parent),
   m_coordLayer(coordLayer),
   m_parcelLayer(parcelLayer),
@@ -63,6 +63,8 @@ te::qt::plugins::tv5plugins::Creator::Creator(te::qt::widgets::MapDisplay* displ
   setCursor(cursor);
 
   display->setFocus();
+
+  m_type = type;
 }
 
 te::qt::plugins::tv5plugins::Creator::~Creator()
@@ -179,7 +181,7 @@ void te::qt::plugins::tv5plugins::Creator::selectObjects(QMouseEvent* e)
   te::mem::DataSetItem* item = new te::mem::DataSetItem(m_dataSet.get());
 
   //set id
-    item->setInt32(0, m_starterId);
+  item->setInt32(0, m_starterId); 
 
   //set origin id
   int originIdPos = te::da::GetPropertyIndex(m_dataSet.get(), "originId");
@@ -191,7 +193,13 @@ void te::qt::plugins::tv5plugins::Creator::selectObjects(QMouseEvent* e)
 
   //forest type
   int typeId = te::da::GetPropertyIndex(m_dataSet.get(), "type");
-  item->setString(3, "CREATED");
+
+  if (m_type == te::qt::plugins::tv5plugins::CREATED_TYPE)
+    item->setString(3, "CREATED");
+  else if (m_type == te::qt::plugins::tv5plugins::LIVE_TYPE)
+    item->setString(3, "LIVE");
+  else if (m_type == te::qt::plugins::tv5plugins::DEAD_TYPE)
+    item->setString(3, "DEAD");
 
   //set geometry
   item->setGeometry(4, point);

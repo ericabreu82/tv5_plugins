@@ -44,13 +44,18 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDia
   m_ui->setupUi(this);
 
   m_ui->m_eraserToolButton->setIcon(QIcon::fromTheme("pointer-remove-selection"));
-  m_ui->m_trackClassifierToolButton->setIcon(QIcon::fromTheme("view-refresh"));
-  m_ui->m_creatorToolButton->setIcon(QIcon::fromTheme("pointer"));
+  m_ui->m_updateToolButton->setIcon(QIcon::fromTheme("view-refresh"));
+  m_ui->m_creatorToolButton->setIcon(QIcon::fromTheme("bullet-blue"));
+  m_ui->m_creatorLiveToolButton->setIcon(QIcon::fromTheme("bullet-green"));
+  m_ui->m_creatorDeadToolButton->setIcon(QIcon::fromTheme("bullet-black"));
   m_ui->m_trackAutoClassifierToolButton->setIcon(QIcon::fromTheme("wand"));
+  m_ui->m_trackDeadClassifierToolButton->setIcon(QIcon::fromTheme("vp-line-length-hint"));
 
   connect(m_ui->m_eraserToolButton, SIGNAL(toggled(bool)), this, SLOT(onEraserToolButtonClicked(bool)));
-  connect(m_ui->m_trackClassifierToolButton, SIGNAL(toggled(bool)), this, SLOT(onTrackClassifierToolButtonClicked(bool)));
+  connect(m_ui->m_updateToolButton, SIGNAL(toggled(bool)), this, SLOT(onUpdateToolButtonClicked(bool)));
   connect(m_ui->m_creatorToolButton, SIGNAL(toggled(bool)), this, SLOT(onCreatorToolButtonClicked(bool)));
+  connect(m_ui->m_creatorLiveToolButton, SIGNAL(toggled(bool)), this, SLOT(onCreatorLiveToolButtonClicked(bool)));
+  connect(m_ui->m_creatorDeadToolButton, SIGNAL(toggled(bool)), this, SLOT(onCreatorDeadToolButtonClicked(bool)));
   connect(m_ui->m_trackAutoClassifierToolButton, SIGNAL(toggled(bool)), this, SLOT(onTrackAutoClassifierToolButtonClicked(bool)));
   connect(m_ui->m_trackDeadClassifierToolButton, SIGNAL(toggled(bool)), this, SLOT(onTrackDeadClassifierToolButtonClicked(bool)));
   
@@ -128,29 +133,8 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onEraserToolButton
   m_appDisplay->setCurrentTool(tool);
 }
 
-void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackClassifierToolButtonClicked(bool flag)
+void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onUpdateToolButtonClicked(bool flag)
 {
-  //if (!flag)
-  //  return;
-
-  //if (!m_appDisplay)
-  //  return;
-
-  //QVariant varLayerPoint = m_ui->m_layerPointsComboBox->itemData(m_ui->m_layerPointsComboBox->currentIndex(), Qt::UserRole);
-  //te::map::AbstractLayerPtr layerPoints = varLayerPoint.value<te::map::AbstractLayerPtr>();
-
-  //QVariant varLayerParcel = m_ui->m_layerParcelComboBox->itemData(m_ui->m_layerParcelComboBox->currentIndex(), Qt::UserRole);
-  //te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
-
-  //QVariant varLayerPoly = m_ui->m_layerPolyComboBox->itemData(m_ui->m_layerPolyComboBox->currentIndex(), Qt::UserRole);
-  //te::map::AbstractLayerPtr layerPoly = varLayerPoly.value<te::map::AbstractLayerPtr>();
-
-  //QPixmap pxmap = QIcon::fromTheme("pointer-selection").pixmap(QSize(16, 16));
-  //QCursor cursor(pxmap, 0, 0);
-
-  //te::qt::plugins::tv5plugins::TrackClassifier* tool = new te::qt::plugins::tv5plugins::TrackClassifier(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, layerPoly);
-  //m_appDisplay->setCurrentTool(tool);
-
   if (!flag)
     return;
 
@@ -185,7 +169,49 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorToolButto
   QPixmap pxmap = QIcon::fromTheme("pointer-selection").pixmap(QSize(16, 16));
   QCursor cursor(pxmap, 0, 0);
 
-  te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel);
+  te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::CREATED_TYPE);
+  m_appDisplay->setCurrentTool(tool);
+}
+
+void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorLiveToolButtonClicked(bool flag)
+{
+  if (!flag)
+    return;
+
+  if (!m_appDisplay)
+    return;
+
+  QVariant varLayerPoint = m_ui->m_layerPointsComboBox->itemData(m_ui->m_layerPointsComboBox->currentIndex(), Qt::UserRole);
+  te::map::AbstractLayerPtr layerPoints = varLayerPoint.value<te::map::AbstractLayerPtr>();
+
+  QVariant varLayerParcel = m_ui->m_layerParcelComboBox->itemData(m_ui->m_layerParcelComboBox->currentIndex(), Qt::UserRole);
+  te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
+
+  QPixmap pxmap = QIcon::fromTheme("pointer-selection").pixmap(QSize(16, 16));
+  QCursor cursor(pxmap, 0, 0);
+
+  te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::LIVE_TYPE);
+  m_appDisplay->setCurrentTool(tool);
+}
+
+void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorDeadToolButtonClicked(bool flag)
+{
+  if (!flag)
+    return;
+
+  if (!m_appDisplay)
+    return;
+
+  QVariant varLayerPoint = m_ui->m_layerPointsComboBox->itemData(m_ui->m_layerPointsComboBox->currentIndex(), Qt::UserRole);
+  te::map::AbstractLayerPtr layerPoints = varLayerPoint.value<te::map::AbstractLayerPtr>();
+
+  QVariant varLayerParcel = m_ui->m_layerParcelComboBox->itemData(m_ui->m_layerParcelComboBox->currentIndex(), Qt::UserRole);
+  te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
+
+  QPixmap pxmap = QIcon::fromTheme("pointer-selection").pixmap(QSize(16, 16));
+  QCursor cursor(pxmap, 0, 0);
+
+  te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), cursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::DEAD_TYPE);
   m_appDisplay->setCurrentTool(tool);
 }
 

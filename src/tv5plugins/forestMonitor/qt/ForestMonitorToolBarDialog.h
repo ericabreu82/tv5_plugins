@@ -72,9 +72,13 @@ namespace te
 
             void onEraserToolButtonClicked(bool flag);
 
-            void onTrackClassifierToolButtonClicked(bool flag);
+            void onUpdateToolButtonClicked(bool flag);
 
             void onCreatorToolButtonClicked(bool flag);
+
+            void onCreatorLiveToolButtonClicked(bool flag);
+
+            void onCreatorDeadToolButtonClicked(bool flag);
 
             void onTrackAutoClassifierToolButtonClicked(bool flag);
 
