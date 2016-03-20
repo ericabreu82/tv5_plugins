@@ -199,7 +199,7 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::selectObjects(QMouseEvent
   if (!m_coordLayer.get())
     return;
 
-  QPointF pixelOffset(4.0, 4.0);
+  QPointF pixelOffset(10.0, 10.0);
 #if (QT_VERSION >= 0x050000)
   QRectF rect = QRectF(e->localPos() - pixelOffset, e->localPos() + pixelOffset);
 #else
@@ -1160,33 +1160,33 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::calculateGuessP
 
   m_ndviRaster->getValue(coordGuess.getX(), coordGuess.getY(), valueGuess);
 
-  //try ll guess point
-  te::gm::Coord2D coordGuessLL = m_ndviRaster->getGrid()->geoToGrid(p->getX() - (m_dx * toleranceFactor), p->getY() - (m_dy * toleranceFactor));
+  ////try ll guess point
+  //te::gm::Coord2D coordGuessLL = m_ndviRaster->getGrid()->geoToGrid(p->getX() - (m_dx * toleranceFactor), p->getY() - (m_dy * toleranceFactor));
 
-  double valueGuessLL = 0.;
+  //double valueGuessLL = 0.;
 
-  m_ndviRaster->getValue(coordGuessLL.getX(), coordGuessLL.getY(), valueGuessLL);
+  //m_ndviRaster->getValue(coordGuessLL.getX(), coordGuessLL.getY(), valueGuessLL);
 
-  //try lr guess point
-  te::gm::Coord2D coordGuessLR = m_ndviRaster->getGrid()->geoToGrid(p->getX() + (m_dx * toleranceFactor), p->getY() + (m_dy * toleranceFactor));
+  ////try lr guess point
+  //te::gm::Coord2D coordGuessLR = m_ndviRaster->getGrid()->geoToGrid(p->getX() + (m_dx * toleranceFactor), p->getY() + (m_dy * toleranceFactor));
 
-  double valueGuessLR = 0.;
+  //double valueGuessLR = 0.;
 
-  m_ndviRaster->getValue(coordGuessLR.getX(), coordGuessLR.getY(), valueGuessLR);
+  //m_ndviRaster->getValue(coordGuessLR.getX(), coordGuessLR.getY(), valueGuessLR);
 
-  //try ul guess point
-  te::gm::Coord2D coordGuessUL = m_ndviRaster->getGrid()->geoToGrid(p->getX() - (m_dy * toleranceFactor), p->getY() + (m_dx * toleranceFactor));
+  ////try ul guess point
+  //te::gm::Coord2D coordGuessUL = m_ndviRaster->getGrid()->geoToGrid(p->getX() - (m_dy * toleranceFactor), p->getY() + (m_dx * toleranceFactor));
 
-  double valueGuessUL = 0.;
+  //double valueGuessUL = 0.;
 
-  m_ndviRaster->getValue(coordGuessUL.getX(), coordGuessUL.getY(), valueGuessUL);
+  //m_ndviRaster->getValue(coordGuessUL.getX(), coordGuessUL.getY(), valueGuessUL);
 
-  //try ur guess point
-  te::gm::Coord2D coordGuessUR = m_ndviRaster->getGrid()->geoToGrid(p->getX() + (m_dy * toleranceFactor), p->getY() - (m_dx * toleranceFactor));
+  ////try ur guess point
+  //te::gm::Coord2D coordGuessUR = m_ndviRaster->getGrid()->geoToGrid(p->getX() + (m_dy * toleranceFactor), p->getY() - (m_dx * toleranceFactor));
 
-  double valueGuessUR = 0.;
+  //double valueGuessUR = 0.;
 
-  m_ndviRaster->getValue(coordGuessUR.getX(), coordGuessUR.getY(), valueGuessUR);
+  //m_ndviRaster->getValue(coordGuessUR.getX(), coordGuessUR.getY(), valueGuessUR);
 
 
   if (valueGuess > thresholdValue)
@@ -1197,7 +1197,7 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::calculateGuessP
 
     pGuess = p;
   }
-  else if (valueGuessLL > thresholdValue)
+  /*else if (valueGuessLL > thresholdValue)
   {
     forestType = "LIVE";
 
@@ -1228,7 +1228,7 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::calculateGuessP
     m_deadCount = 0;
 
     pGuess = new te::gm::Point(p->getX() + (m_dy * toleranceFactor), p->getY() - (m_dx * toleranceFactor), p->getSRID());
-  }
+  }*/
   else
   {
     forestType = "DEAD";

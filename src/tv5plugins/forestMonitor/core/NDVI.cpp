@@ -36,6 +36,7 @@
 
 //STL Includes
 #include <cassert>
+#include <numeric>
 
 std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateNDVIRaster(te::rst::Raster* rasterNIR, int bandNIR, 
                                                                                te::rst::Raster* rasterVIS, int bandVIS, 
@@ -83,17 +84,18 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateNDVIRaster(t
     rasterNDVI = te::rst::RasterFactory::make(typeNDVI, grid, bandsProperties, rInfo);
   }
 
-  if(invert)
+  /*if(invert)
   {
     rasterNIR = InvertRaster(rasterNIR, bandNIR);
     bandNIR = 0;
-  }
+  }*/
 
   //start NDVI operation
   std::size_t nRows = rasterNDVI->getNumberOfRows();
   std::size_t nCols = rasterNDVI->getNumberOfColumns();
 
-  double nirValue, visValue;
+  double nirValue = 0.;
+  double visValue = 0.;
 
   double minValue = std::numeric_limits<double>::max();
   double maxValue = -std::numeric_limits<double>::max();
@@ -112,8 +114,22 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateNDVIRaster(t
         try
         {
           rasterNIR->getValue(q, t, nirValue, bandNIR);
-          rasterVIS->getValue(q, t, visValue, bandVIS);
 
+          if (invert)
+            nirValue = (nirValue * (-1.)) + 255.;
+
+          std::vector<double> visValueVec;
+
+          rasterVIS->getValues(q, t, visValueVec);
+
+          for (std::size_t a = 0; a < visValueVec.size() - 1; ++a)
+          {
+            visValue += visValueVec[a];
+          }
+
+          if (visValue != 0.)
+            visValue = visValue / (double)rasterVIS->getNumberOfBands() - 1;
+          
           double value = 0.;
 
           if(nirValue + visValue != 0.)

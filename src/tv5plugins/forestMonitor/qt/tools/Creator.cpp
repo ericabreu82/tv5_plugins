@@ -329,6 +329,9 @@ bool te::qt::plugins::tv5plugins::Creator::getParcelParentId(te::gm::Point* poin
 
   te::da::PrimaryKey* pk = schema->getPrimaryKey();
   std::string name = pk->getProperties()[0]->getName();
+  
+  if (m_coordLayer->getSRID() != m_parcelLayer->getSRID())
+    envelope.transform(m_coordLayer->getSRID(), m_parcelLayer->getSRID());
 
   // Gets the dataset
   std::auto_ptr<te::da::DataSet> dataset = m_parcelLayer->getData(gp->getName(), &envelope, te::gm::INTERSECTS);
