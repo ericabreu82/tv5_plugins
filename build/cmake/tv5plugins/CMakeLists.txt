@@ -160,7 +160,7 @@ qt5_use_modules(tv5_3rdparty_plugins Widgets)
 add_custom_command(
       TARGET tv5_3rdparty_plugins
       POST_BUILD
-	  COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_BINARY_DIR}/bin/Debug/tv5_3rdparty_plugins.dll" "${terralib_DIR}/debug"
+	  COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_BINARY_DIR}/bin/Debug/tv5_3rdparty_pluginsd.dll" "${terralib_DIR}/debug"
       
       COMMENT "Copying plugin files..."
       VERBATIM

@@ -483,6 +483,12 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     return;
   }
 
+  if (m_ui->m_originalLayerComboBox->currentText().isEmpty() || m_ui->m_ndviLayerComboBox->currentText().isEmpty() || m_ui->m_vecComboBox->currentText().isEmpty())
+  {
+    QMessageBox::information(this, tr("Warning"), tr("Input parameters are not defined."));
+    return;
+  }
+
   std::string newLayerName = m_ui->m_newLayerNameLineEdit->text().toStdString();
 
   //get ndvi layer
@@ -636,19 +642,29 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
 
       //create threshold raster
       rInfo["URI"] = repName + "_threshold_" + te::common::Convert2String(parcelId) + ".tif";
-      std::auto_ptr<te::rst::Raster> thresholdRaster = GenerateThresholdRaster(parcelRaster.get(), ndviBand, threshold, type, rInfo);
+      std::auto_ptr<te::rst::Raster> outputRaster = GenerateThresholdRaster(parcelRaster.get(), ndviBand, threshold, type, rInfo);
 
       //create erosion raster
-      rInfo["URI"] = repName + "_erosion_" + te::common::Convert2String(parcelId) + ".tif";
-      std::auto_ptr<te::rst::Raster> erosionRaster = GenerateFilterRaster(thresholdRaster.get(), 0, dilation, te::rp::Filter::InputParameters::DilationFilterT, type, rInfo);
+      if (dilation > 0)
+      {
+        rInfo["URI"] = repName + "_erosion_" + te::common::Convert2String(parcelId) + ".tif";
+        std::auto_ptr<te::rst::Raster> erosionRaster = GenerateFilterRaster(outputRaster.get(), 0, dilation, te::rp::Filter::InputParameters::DilationFilterT, type, rInfo);
 
-      thresholdRaster.reset(0);
+        outputRaster.reset(0);
+
+        outputRaster = erosionRaster;
+      }
 
       //create dilation raster
-      rInfo["URI"] = repName + "_dilation_" + te::common::Convert2String(parcelId) + ".tif";
-      std::auto_ptr<te::rst::Raster> dilationRaster = GenerateFilterRaster(erosionRaster.get(), 0, erosion, te::rp::Filter::InputParameters::ErosionFilterT, type, rInfo);
+      if (erosion > 0)
+      {
+        rInfo["URI"] = repName + "_dilation_" + te::common::Convert2String(parcelId) + ".tif";
+        std::auto_ptr<te::rst::Raster> dilationRaster = GenerateFilterRaster(outputRaster.get(), 0, erosion, te::rp::Filter::InputParameters::ErosionFilterT, type, rInfo);
 
-      erosionRaster.reset(0);
+        outputRaster.reset(0);
+
+        outputRaster = dilationRaster;
+      }
 
       //export image
       if (m_ui->m_saveResultImageCheckBox->isChecked())
@@ -661,13 +677,13 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
 
         std::string rasterFileName = repName + "_" + te::common::Convert2String(parcelId) + ".tif";
 
-        te::qt::plugins::tv5plugins::ExportRaster(dilationRaster.get(), rasterFileName);
+        te::qt::plugins::tv5plugins::ExportRaster(outputRaster.get(), rasterFileName);
       }
 
       //create geometries
-      std::vector<te::gm::Geometry*> geomVec = te::qt::plugins::tv5plugins::Raster2Vector(dilationRaster.get(), 0);
+      std::vector<te::gm::Geometry*> geomVec = te::qt::plugins::tv5plugins::Raster2Vector(outputRaster.get(), 0);
 
-      dilationRaster.reset(0);
+      outputRaster.reset(0);
 
       //get centroids
       te::qt::plugins::tv5plugins::ExtractCentroids(geomVec, centroidsVec, parcelId);
@@ -757,7 +773,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::drawRaster(te::rst::
   // Draw raster
   canvas.clear();
 
-  te::map::DrawRaster(raster, &canvas, env, mapDisplay->getSRID(), envRst, raster->getSRID(), cs);
+  te::map::DrawRaster(raster, &canvas, env, mapDisplay->getSRID(), envRst, raster->getSRID(), cs, mapDisplay->getScale());
 
   if(hasToDelete)
     delete style;

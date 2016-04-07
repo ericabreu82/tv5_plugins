@@ -46,7 +46,7 @@ te::qt::plugins::tv5plugins::PhotoIndexAction::~PhotoIndexAction()
 void te::qt::plugins::tv5plugins::PhotoIndexAction::onActionActivated(bool checked)
 {
   //show interface
-  te::qt::plugins::tv5plugins::PhotoIndexDialog dlg(te::qt::af::ApplicationController::getInstance().getMainWindow());
+  te::qt::plugins::tv5plugins::PhotoIndexDialog dlg(te::qt::af::AppCtrlSingleton::getInstance().getMainWindow());
 
   if(dlg.exec() == QDialog::Accepted)
   {

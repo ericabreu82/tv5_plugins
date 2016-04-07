@@ -201,6 +201,8 @@ void te::qt::plugins::tv5plugins::NDVIDialog::onOkPushButtonClicked()
 
   bool normalize = m_ui->m_normalizeCheckBox->isChecked();
 
+  bool rgbVIS = m_ui->m_rgbComposeCheckBox->isChecked();
+
   //rinfo information
   std::string type = "GDAL";
   std::map<std::string, std::string> rInfo;
@@ -214,7 +216,7 @@ void te::qt::plugins::tv5plugins::NDVIDialog::onOkPushButtonClicked()
 
   try
   {
-    std::auto_ptr<te::rst::Raster> rOut = te::qt::plugins::tv5plugins::GenerateNDVIRaster(nirRaster.get(), nirBand, visRaster.get(), visBand, gain, offset, normalize, rInfo, type, m_ui->m_invertCheckBox->isChecked());
+    std::auto_ptr<te::rst::Raster> rOut = te::qt::plugins::tv5plugins::GenerateNDVIRaster(nirRaster.get(), nirBand, visRaster.get(), visBand, gain, offset, normalize, rInfo, type, visLayer->getSRID(), m_ui->m_invertCheckBox->isChecked(), rgbVIS);
   }
   catch(const std::exception& e)
   {

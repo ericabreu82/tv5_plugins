@@ -63,7 +63,7 @@
 #include <QMenuBar>
 
 te::qt::plugins::tv5plugins::Plugin::Plugin(const te::plugin::PluginInfo& pluginInfo)
-  : te::plugin::Plugin(pluginInfo), m_menu(0)
+  : QObject(), te::plugin::Plugin(pluginInfo), m_menu(0)
 {
 }
 
@@ -76,10 +76,12 @@ void te::qt::plugins::tv5plugins::Plugin::startup()
   if(m_initialized)
     return;
 
+  te::qt::af::AppCtrlSingleton::getInstance().addListener(this, te::qt::af::SENDER);
+
   TE_LOG_TRACE(TE_TR("TerraLib Qt Third Party Plugin startup!"));
 
 // add plugin menu
-  m_menu = te::qt::af::ApplicationController::getInstance().getMenu("thirdParty");
+  m_menu = te::qt::af::AppCtrlSingleton::getInstance().getMenu("thirdParty");
 
   m_menu->setTitle(TE_TR("Third Party"));
 
@@ -113,30 +115,37 @@ void te::qt::plugins::tv5plugins::Plugin::registerActions()
 {
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITOR
   m_forestMonitor = new te::qt::plugins::tv5plugins::ForestMonitorAction(m_menu);
+  connect(m_forestMonitor, SIGNAL(triggered(te::qt::af::evt::Event*)), SIGNAL(triggered(te::qt::af::evt::Event*)));
 #endif
 
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITORCLASS
   m_forestMonitorClass = new te::qt::plugins::tv5plugins::ForestMonitorClassAction(m_menu);
+  connect(m_forestMonitorClass, SIGNAL(triggered(te::qt::af::evt::Event*)), SIGNAL(triggered(te::qt::af::evt::Event*)));
 #endif
 
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITORTOOLBAR
   m_forestMonitorToolBar = new te::qt::plugins::tv5plugins::ForestMonitorToolBarAction(m_menu);
+  connect(m_forestMonitorToolBar, SIGNAL(triggered(te::qt::af::evt::Event*)), SIGNAL(triggered(te::qt::af::evt::Event*)));
 #endif
 
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_NDVI
   m_ndvi = new te::qt::plugins::tv5plugins::NDVIAction(m_menu);
+  connect(m_ndvi, SIGNAL(triggered(te::qt::af::evt::Event*)), SIGNAL(triggered(te::qt::af::evt::Event*)));
 #endif
 
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_TILEGENERATOR
   m_tileGenerator = new te::qt::plugins::tv5plugins::TileGeneratorAction(m_menu);
+  connect(m_tileGenerator, SIGNAL(triggered(te::qt::af::evt::Event*)), SIGNAL(triggered(te::qt::af::evt::Event*)));
 #endif
 
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_PHOTOINDEX
   m_photoIndex = new te::qt::plugins::tv5plugins::PhotoIndexAction(m_menu);
+  connect(m_photoIndex, SIGNAL(triggered(te::qt::af::evt::Event*)), SIGNAL(triggered(te::qt::af::evt::Event*)));
 #endif
 
 #ifdef TE_QT_PLUGIN_THIRDPARTY_HAVE_PROXIMITY
   m_proximity = new te::qt::plugins::tv5plugins::ProximityAction(m_menu);
+  connect(m_proximity, SIGNAL(triggered(te::qt::af::evt::Event*)), SIGNAL(triggered(te::qt::af::evt::Event*)));
 #endif
 }
 

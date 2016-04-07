@@ -47,7 +47,8 @@ namespace te
                                                           te::rst::Raster* rasterVIS, int bandVIS, 
                                                           double gain, double offset, bool normalize, 
                                                           std::map<std::string, std::string> rInfo,
-                                                          std::string type, bool invert);
+                                                          std::string type, int srid,
+                                                          bool invert, bool rgbVIS);
 
         te::rst::Raster* InvertRaster(te::rst::Raster* rasterNIR, int bandNIR);
 

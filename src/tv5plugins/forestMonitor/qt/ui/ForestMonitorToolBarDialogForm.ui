@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>489</width>
-    <height>337</height>
+    <width>491</width>
+    <height>367</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -104,7 +104,7 @@
                <bool>true</bool>
               </property>
               <property name="autoExclusive">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="autoRaise">
                <bool>true</bool>
@@ -123,7 +123,7 @@
                <bool>true</bool>
               </property>
               <property name="autoExclusive">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="autoRaise">
                <bool>true</bool>
@@ -142,7 +142,7 @@
                <bool>true</bool>
               </property>
               <property name="autoExclusive">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="autoRaise">
                <bool>true</bool>
@@ -161,7 +161,7 @@
                <bool>true</bool>
               </property>
               <property name="autoExclusive">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="autoRaise">
                <bool>true</bool>
@@ -180,7 +180,7 @@
                <bool>true</bool>
               </property>
               <property name="autoExclusive">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="autoRaise">
                <bool>true</bool>
@@ -199,7 +199,7 @@
                <bool>true</bool>
               </property>
               <property name="autoExclusive">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="autoRaise">
                <bool>true</bool>
@@ -218,7 +218,7 @@
                <bool>true</bool>
               </property>
               <property name="autoExclusive">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="autoRaise">
                <bool>true</bool>
@@ -259,58 +259,18 @@
        <layout class="QGridLayout" name="gridLayout_3">
         <item row="0" column="0">
          <layout class="QGridLayout" name="gridLayout">
-          <item row="3" column="0">
-           <widget class="QLabel" name="label_3">
-            <property name="text">
-             <string>NDVI</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="label">
-            <property name="text">
-             <string>Points</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QComboBox" name="m_layerParcelComboBox">
+          <item row="0" column="1">
+           <widget class="QComboBox" name="m_layerPointsComboBox">
             <property name="sizePolicy">
              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_2">
-            <property name="text">
-             <string>Parcel</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
           <item row="3" column="1">
            <widget class="QComboBox" name="m_layerPolyComboBox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QComboBox" name="m_layerPointsComboBox">
             <property name="sizePolicy">
              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -329,6 +289,26 @@
             </property>
            </widget>
           </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>Points</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>Parcel</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
           <item row="2" column="0">
            <widget class="QLabel" name="label_9">
             <property name="text">
@@ -336,6 +316,26 @@
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_3">
+            <property name="text">
+             <string>NDVI</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="m_layerParcelComboBox">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
             </property>
            </widget>
           </item>
@@ -358,33 +358,17 @@
        <layout class="QGridLayout" name="gridLayout_4">
         <item row="0" column="0">
          <layout class="QGridLayout" name="gridLayout_2">
-          <item row="3" column="2">
-           <widget class="QLineEdit" name="m_maxDeadLineEdit">
-            <property name="maximumSize">
-             <size>
-              <width>50</width>
-              <height>16777215</height>
-             </size>
-            </property>
+          <item row="0" column="0">
+           <widget class="QLabel" name="m_dist">
             <property name="text">
-             <string>6</string>
+             <string>Distance Tree:</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
-          <item row="0" column="3">
-           <widget class="QLabel" name="m_dx">
-            <property name="text">
-             <string>Tolerance:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
+          <item row="0" column="1">
            <widget class="QLineEdit" name="m_distLineEdit">
             <property name="maximumSize">
              <size>
@@ -400,36 +384,17 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="4">
-           <widget class="QLineEdit" name="m_deadTolLineEdit">
-            <property name="maximumSize">
-             <size>
-              <width>50</width>
-              <height>16777215</height>
-             </size>
-            </property>
+          <item row="0" column="2">
+           <widget class="QLabel" name="m_dx">
             <property name="text">
-             <string>0.0</string>
+             <string>Tolerance:</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
-          <item row="2" column="0" colspan="2">
-           <widget class="QLabel" name="label_4">
-            <property name="enabled">
-             <bool>true</bool>
-            </property>
-            <property name="text">
-             <string>Polygon Area Threshold Min:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="4">
+          <item row="0" column="3">
            <widget class="QLineEdit" name="m_distTolLineEdit">
             <property name="enabled">
              <bool>true</bool>
@@ -448,7 +413,78 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="2">
+          <item row="1" column="0">
+           <widget class="QLabel" name="m_dy">
+            <property name="text">
+             <string>Distance Track:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="m_distTrackLineEdit">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>3.0</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="m_dx_2">
+            <property name="text">
+             <string>Tolerance:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <widget class="QLineEdit" name="m_distTrackTolLineEdit">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>0.2</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_4">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string>Polygon Area Threshold Min:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
            <widget class="QLineEdit" name="m_polyAreaMinLineEdit">
             <property name="enabled">
              <bool>true</bool>
@@ -467,36 +503,20 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="3">
-           <widget class="QLabel" name="label_7">
-            <property name="text">
-             <string>Dead Tol:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QLineEdit" name="m_distBufferLineEdit">
+          <item row="2" column="2">
+           <widget class="QLabel" name="label_5">
             <property name="enabled">
              <bool>true</bool>
             </property>
-            <property name="maximumSize">
-             <size>
-              <width>50</width>
-              <height>16777215</height>
-             </size>
-            </property>
             <property name="text">
-             <string>1.5</string>
+             <string>Max:</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
-          <item row="2" column="4">
+          <item row="2" column="3">
            <widget class="QLineEdit" name="m_polyAreaMaxLineEdit">
             <property name="enabled">
              <bool>true</bool>
@@ -515,20 +535,7 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="3">
-           <widget class="QLabel" name="label_5">
-            <property name="enabled">
-             <bool>true</bool>
-            </property>
-            <property name="text">
-             <string>Max:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
+          <item row="3" column="0">
            <widget class="QLabel" name="label_6">
             <property name="text">
              <string>Max Dead:</string>
@@ -538,37 +545,59 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
-           <widget class="QLabel" name="m_dist">
+          <item row="3" column="1">
+           <widget class="QLineEdit" name="m_maxDeadLineEdit">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="text">
-             <string>Distance:</string>
+             <string>6</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
-           <widget class="QLabel" name="m_dy">
+          <item row="3" column="2">
+           <widget class="QLabel" name="label_7">
             <property name="text">
-             <string>Distance Buffer:</string>
+             <string>Dead Tol:</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
-          <item row="1" column="3">
+          <item row="3" column="3">
+           <widget class="QLineEdit" name="m_deadTolLineEdit">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>0.0</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
            <widget class="QLabel" name="label_8">
             <property name="text">
-             <string>Threshold:</string>
+             <string>Image Threshold:</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
-          <item row="1" column="4">
+          <item row="4" column="1">
            <widget class="QLineEdit" name="m_thresholdLineEdit">
             <property name="maximumSize">
              <size>
@@ -594,22 +623,28 @@
   </layout>
  </widget>
  <tabstops>
+  <tabstop>checkBox</tabstop>
+  <tabstop>checkBox_2</tabstop>
+  <tabstop>m_creatorToolButton</tabstop>
+  <tabstop>m_creatorLiveToolButton</tabstop>
+  <tabstop>m_creatorDeadToolButton</tabstop>
+  <tabstop>m_eraserToolButton</tabstop>
+  <tabstop>m_updateToolButton</tabstop>
+  <tabstop>m_trackAutoClassifierToolButton</tabstop>
+  <tabstop>m_trackDeadClassifierToolButton</tabstop>
   <tabstop>m_layerPointsComboBox</tabstop>
   <tabstop>m_layerParcelComboBox</tabstop>
   <tabstop>m_layerDirComboBox</tabstop>
   <tabstop>m_layerPolyComboBox</tabstop>
-  <tabstop>m_eraserToolButton</tabstop>
-  <tabstop>m_creatorToolButton</tabstop>
-  <tabstop>m_updateToolButton</tabstop>
   <tabstop>m_distLineEdit</tabstop>
   <tabstop>m_distTolLineEdit</tabstop>
-  <tabstop>m_distBufferLineEdit</tabstop>
-  <tabstop>m_thresholdLineEdit</tabstop>
+  <tabstop>m_distTrackLineEdit</tabstop>
+  <tabstop>m_distTrackTolLineEdit</tabstop>
   <tabstop>m_polyAreaMinLineEdit</tabstop>
   <tabstop>m_polyAreaMaxLineEdit</tabstop>
   <tabstop>m_maxDeadLineEdit</tabstop>
   <tabstop>m_deadTolLineEdit</tabstop>
-  <tabstop>m_trackAutoClassifierToolButton</tabstop>
+  <tabstop>m_thresholdLineEdit</tabstop>
  </tabstops>
  <resources/>
  <connections>

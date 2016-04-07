@@ -42,7 +42,7 @@
 
   \brief It defines if the third Party Qt Plugin has the forest monitor operation.
 */
-#define TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITOR
+//#define TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITOR
 
 /*!
   \def TE_QT_PLUGIN_THIRDPARTY_HAVE_FORESTMONITORCLASS

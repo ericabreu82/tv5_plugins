@@ -40,6 +40,7 @@
 #include <terralib/se/Utils.h>
 #include <terralib/qt/widgets/canvas/Canvas.h>
 #include <terralib/qt/widgets/canvas/MapDisplay.h>
+#include <terralib/qt/widgets/canvas/MultiThreadMapDisplay.h>
 #include "Creator.h"
 
 // Qt
@@ -113,6 +114,12 @@ bool te::qt::plugins::tv5plugins::Creator::eventFilter(QObject* watched, QEvent*
       cancelOperation();
 
     return true;
+  }
+  else if (e->type() == QEvent::Enter)
+  {
+    if (m_cursor.shape() != Qt::BlankCursor)
+      m_display->setCursor(m_cursor);
+    return false;
   }
 
   return false;
@@ -250,7 +257,11 @@ void te::qt::plugins::tv5plugins::Creator::saveObjects()
   m_dataSet.reset();
 
   //repaint the layer
-  m_display->refresh();
+  te::qt::widgets::MultiThreadMapDisplay* mtmp = dynamic_cast<te::qt::widgets::MultiThreadMapDisplay*>(m_display);
+  if (mtmp)
+    mtmp->updateLayer(m_coordLayer);
+  else
+    m_display->refresh();
 }
 
 void te::qt::plugins::tv5plugins::Creator::drawSelecteds()

@@ -42,7 +42,8 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateNDVIRaster(t
                                                                                te::rst::Raster* rasterVIS, int bandVIS, 
                                                                                double gain, double offset, bool normalize, 
                                                                                std::map<std::string, std::string> rInfo,
-                                                                               std::string type, bool invert)
+                                                                               std::string type, int srid,
+                                                                               bool invert, bool rgbVIS)
 {
   //check input parameters
   if(!rasterNIR || ! rasterVIS)
@@ -71,13 +72,13 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateNDVIRaster(t
   bandsProperties.push_back(bandProp);
 
   te::rst::Grid* grid = new te::rst::Grid(*(rasterNIR->getGrid()));
+  grid->setSRID(srid);
 
   te::rst::Raster* rasterNDVI = 0;
 
   if(normalize)
   {
     rasterNDVI = new te::mem::ExpansibleRaster(10, grid, bandsProperties);
-
   }
   else
   {
@@ -118,17 +119,24 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateNDVIRaster(t
           if (invert)
             nirValue = (nirValue * (-1.)) + 255.;
 
-          std::vector<double> visValueVec;
-
-          rasterVIS->getValues(q, t, visValueVec);
-
-          for (std::size_t a = 0; a < visValueVec.size() - 1; ++a)
+          if (rgbVIS)
           {
-            visValue += visValueVec[a];
-          }
+            std::vector<double> visValueVec;
 
-          if (visValue != 0.)
-            visValue = visValue / (double)rasterVIS->getNumberOfBands() - 1;
+            rasterVIS->getValues(q, t, visValueVec);
+
+            for (std::size_t a = 0; a < visValueVec.size(); ++a)
+            {
+              visValue += visValueVec[a];
+            }
+
+            if (visValue != 0.)
+              visValue = visValue / (double)rasterVIS->getNumberOfBands();
+          }
+          else
+          {
+            rasterVIS->getValue(q, t, visValue, bandVIS);
+          }
           
           double value = 0.;
 
@@ -159,10 +167,10 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateNDVIRaster(t
     }
   }
 
-  if (invert)
-  {
-    delete rasterNIR;
-  }
+  //if (invert)
+  //{
+  //  delete rasterNIR;
+  //}
 
   std::auto_ptr<te::rst::Raster> rasterOut;
 
@@ -176,6 +184,8 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateNDVIRaster(t
   {
     rasterOut.reset(rasterNDVI);
   }
+
+  rasterOut->getGrid()->setSRID(srid);
 
   return rasterOut;
 }

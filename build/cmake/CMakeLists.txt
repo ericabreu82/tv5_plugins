@@ -14,6 +14,10 @@ endif()
 
 set_directory_properties(PROPERTIES CLEAN_NO_CUSTOM 1)
 
+if(MSVC)
+  set(CMAKE_DEBUG_POSTFIX "d")
+endif()
+
 #
 # main variables for the build script
 #

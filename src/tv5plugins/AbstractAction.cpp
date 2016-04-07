@@ -26,13 +26,13 @@
 // Terralib
 #include <terralib/qt/af/events/LayerEvents.h>
 #include <terralib/qt/af/ApplicationController.h>
-#include <terralib/qt/af/Project.h>
 #include "AbstractAction.h"
 
 // STL
 #include <cassert>
 
 te::qt::plugins::tv5plugins::AbstractAction::AbstractAction(QMenu* menu) :
+  QObject(),
   m_menu(menu), 
   m_action(0)
 {
@@ -63,17 +63,24 @@ void te::qt::plugins::tv5plugins::AbstractAction::addNewLayer(te::map::AbstractL
 {
   te::qt::af::evt::LayerAdded evt(layer.get());
 
-  te::qt::af::ApplicationController::getInstance().broadcast(&evt);
+  emit triggered(&evt);
 }
 
 std::list<te::map::AbstractLayerPtr> te::qt::plugins::tv5plugins::AbstractAction::getLayers()
 {
-  std::list<te::map::AbstractLayerPtr> list;
+  te::qt::af::evt::GetAvailableLayers e;
 
-  te::qt::af::Project* prj = te::qt::af::ApplicationController::getInstance().getProject();
+  emit triggered(&e);
 
-  if(prj)
-    list = prj->getAllLayers();
+  std::list<te::map::AbstractLayerPtr> allLayers = e.m_layers;
 
-  return list;
+  std::list<te::map::AbstractLayerPtr> layers;
+
+  for (std::list<te::map::AbstractLayerPtr>::iterator it = allLayers.begin(); it != allLayers.end(); ++it)
+  {
+    if ((*it)->isValid())
+      layers.push_back(*it);
+  }
+
+  return layers;
 }

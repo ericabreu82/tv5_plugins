@@ -26,7 +26,6 @@
 // Terralib
 #include <terralib/qt/af/ApplicationController.h>
 #include <terralib/qt/af/BaseApplication.h>
-#include <terralib/qt/af/Project.h>
 #include "qt/ForestMonitorDialog.h"
 #include "ForestMonitorAction.h"
 
@@ -48,20 +47,15 @@ te::qt::plugins::tv5plugins::ForestMonitorAction::~ForestMonitorAction()
 void te::qt::plugins::tv5plugins::ForestMonitorAction::onActionActivated(bool checked)
 {
   //get input layers
-  te::qt::af::Project* prj = te::qt::af::ApplicationController::getInstance().getProject();
-
-  std::list<te::map::AbstractLayerPtr> list;
-
-  if(prj)
-    list = prj->getVisibleSingleLayers();
+  std::list<te::map::AbstractLayerPtr> layersList = getLayers();
 
   //get display extent
-  te::qt::af::BaseApplication* ba = dynamic_cast<te::qt::af::BaseApplication*>(te::qt::af::ApplicationController::getInstance().getMainWindow());
+  te::qt::af::BaseApplication* ba = dynamic_cast<te::qt::af::BaseApplication*>(te::qt::af::AppCtrlSingleton::getInstance().getMainWindow());
 
   //show interface
-  te::qt::plugins::tv5plugins::ForestMonitorDialog dlg(te::qt::af::ApplicationController::getInstance().getMainWindow());
+  te::qt::plugins::tv5plugins::ForestMonitorDialog dlg(te::qt::af::AppCtrlSingleton::getInstance().getMainWindow());
 
-  dlg.setLayerList(list);
+  dlg.setLayerList(layersList);
 
   if(dlg.exec() == QDialog::Accepted)
   {

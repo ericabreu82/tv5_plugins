@@ -68,6 +68,10 @@ namespace te
 
             void setMapDisplay(te::qt::af::MapDisplay* mapDisplay);
 
+          protected:
+
+            void createActions();
+
           protected slots:
 
             void onEraserToolButtonClicked(bool flag);
@@ -90,6 +94,15 @@ namespace te
 
             te::qt::af::MapDisplay* m_appDisplay;
 
+            QAction* m_actionEraser;
+            QAction* m_actionUpdate;
+            QAction* m_actionCreator;
+            QAction* m_actionCreatorLive;
+            QAction* m_actionCreatorDead;
+            QAction* m_actionAutoTrack;
+            QAction* m_actionDeadTrack;
+            
+            bool m_clearTool;
         };
       }   // end namespace thirdParty
     }     // end namespace plugins

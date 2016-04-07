@@ -46,6 +46,7 @@ or (at your option) any later version.
 #include <terralib/se/Utils.h>
 #include <terralib/qt/widgets/canvas/Canvas.h>
 #include <terralib/qt/widgets/canvas/MapDisplay.h>
+#include <terralib/qt/widgets/canvas/MultiThreadMapDisplay.h>
 #include "TrackAutoClassifier.h"
 
 // Qt
@@ -59,8 +60,9 @@ or (at your option) any later version.
 #include <memory>
 
 #define DISTANCE 2.0
-#define DISTANCE_BUFFER 1.5
+#define DISTANCE_TRACK 3.0
 #define TOLERANCE_FACTOR 0.2
+#define TRACK_TOLERANCE_FACTOR 0.3
 #define POLY_AREA_MIN 0.1
 #define POLY_AREA_MAX 2.0
 #define MAX_DEAD 6
@@ -82,7 +84,7 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::wi
   m_panStarted(false)
 {
   m_distLineEdit = 0;
-  m_distanceBufferLineEdit = 0;
+  m_distanceTrackLineEdit = 0;
   m_distanceToleranceFactorLineEdit = 0;
 
   m_dx = 0.;
@@ -129,11 +131,12 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::~TrackAutoClassifier()
   delete m_ndviRaster;
 }
 
-void te::qt::plugins::tv5plugins::TrackAutoClassifier::setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol, QLineEdit* threshold)
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceTrackLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* distanceTrackToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol, QLineEdit* threshold)
 {
   m_distLineEdit = distLineEdit;
-  m_distanceBufferLineEdit = distanceBufferLineEdit;
+  m_distanceTrackLineEdit = distanceTrackLineEdit;
   m_distanceToleranceFactorLineEdit = distanceToleranceFactorLineEdit;
+  m_distanceTrackToleranceFactorLineEdit = distanceTrackToleranceFactorLineEdit;
   m_polyAreaMin = polyAreaMin;
   m_polyAreaMax = polyAreaMax;
   m_maxDeadLineEdit = maxDead;
@@ -189,6 +192,12 @@ bool te::qt::plugins::tv5plugins::TrackAutoClassifier::eventFilter(QObject* watc
       cancelOperation(true);
 
     return true;
+  }
+  else if (e->type() == QEvent::Enter)
+  {
+    if (m_cursor.shape() != Qt::BlankCursor)
+      m_display->setCursor(m_cursor);
+    return false;
   }
 
   return false;
@@ -289,7 +298,6 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::selectObjects(QMouseEvent
 
   drawSelecteds();
 
-  //repaint the layer
   m_display->repaint();
 }
 
@@ -306,7 +314,11 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::classifyObjects()
   m_roots = 0;
 
   //repaint the layer
-  m_display->refresh();
+  te::qt::widgets::MultiThreadMapDisplay* mtmp = dynamic_cast<te::qt::widgets::MultiThreadMapDisplay*>(m_display);
+  if (mtmp)
+    mtmp->updateLayer(m_coordLayer);
+  else
+    m_display->repaint();
 }
 
 void te::qt::plugins::tv5plugins::TrackAutoClassifier::autoClassifyObjects()
@@ -319,7 +331,11 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::autoClassifyObjects()
   processDataSet(dsResult.get());
 
   //repaint the layer
-  m_display->refresh();
+  te::qt::widgets::MultiThreadMapDisplay* mtmp = dynamic_cast<te::qt::widgets::MultiThreadMapDisplay*>(m_display);
+  if (mtmp)
+    mtmp->updateLayer(m_coordLayer);
+  else
+    m_display->repaint();
 }
 
 void te::qt::plugins::tv5plugins::TrackAutoClassifier::cancelOperation(bool restart)
@@ -468,20 +484,34 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
   }
 
   //get distance buffer info
-  double distanceBuffer = 0.;
+  double distanceTrack = 0.;
 
-  if (m_distanceBufferLineEdit->text().isEmpty())
+  if (m_distanceTrackLineEdit->text().isEmpty())
   {
-    distanceBuffer = DISTANCE_BUFFER;
+    distanceTrack = DISTANCE_TRACK;
   }
   else
   {
-    distanceBuffer = m_distanceBufferLineEdit->text().toDouble();
+    distanceTrack = m_distanceTrackLineEdit->text().toDouble();
+  }
+
+  double distanceTrackTol = 0.;
+
+  if (m_distanceTrackToleranceFactorLineEdit->text().isEmpty())
+  {
+    distanceTrackTol = TRACK_TOLERANCE_FACTOR;
+  }
+  else
+  {
+    distanceTrackTol = m_distanceTrackToleranceFactorLineEdit->text().toDouble();
   }
 
   //get parcel geom
   int parcelId;
   std::auto_ptr<te::gm::Geometry> parcelGeom = getParcelGeeom(rootPoint, parcelId);
+
+  if (!parcelGeom.get())
+    return 0;
 
   parcelGeom->setSRID(srid);
 
@@ -564,7 +594,7 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
     te::gm::Point* guestPoint = createGuessPoint(rootPoint, dx, dy, srid);
 
     //create envelope to find if guest point exist
-    te::gm::Envelope ext(guestPoint->getX(), guestPoint->getY(), guestPoint->getX(), guestPoint->getY());
+    //te::gm::Envelope ext(guestPoint->getX(), guestPoint->getY(), guestPoint->getX(), guestPoint->getY());
 
     double toleranceFactor = 0.;
 
@@ -580,21 +610,23 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
     //adjust tolerance for dead trees
     toleranceFactor = toleranceFactor + (m_deadCount * m_deltaTol);
 
-    ext.m_llx -= (m_distance * toleranceFactor);
-    ext.m_lly -= (m_distance * toleranceFactor);
-    ext.m_urx += (m_distance * toleranceFactor);
-    ext.m_ury += (m_distance * toleranceFactor);
-
-    //check on tree
-    std::vector<int> resultsTreeObjs;
-
-    m_centroidRtree.search(ext, resultsTreeObjs);
+    //ext.m_llx -= (m_distance * toleranceFactor);
+    //ext.m_lly -= (m_distance * toleranceFactor);
+    //ext.m_urx += (m_distance * toleranceFactor);
+    //ext.m_ury += (m_distance * toleranceFactor);
 
     //filter using a line buffer
     std::auto_ptr<te::gm::LineString> lineSearchBuffer(new te::gm::LineString(2, te::gm::LineStringType, srid));
-    lineSearchBuffer->setPoint(0, rootPoint->getX() + (dx / 2.), rootPoint->getY() + (dy / 2.));
-    lineSearchBuffer->setPoint(1, rootPoint->getX() + (dx / 2.) + dx, rootPoint->getY() + (dy / 2.) + dy);
-    te::gm::Geometry* geomLineSearchBuffer = lineSearchBuffer->buffer(distanceBuffer / 2., 4, te::gm::CapButtType);
+    lineSearchBuffer->setPoint(0, rootPoint->getX() + (dx - (dx*toleranceFactor)), rootPoint->getY() + (dy - (dy*toleranceFactor)));
+    lineSearchBuffer->setPoint(1, rootPoint->getX() + (dx + (dx*toleranceFactor)), rootPoint->getY() + (dy + (dy*toleranceFactor)));
+    te::gm::Geometry* geomLineSearchBuffer = lineSearchBuffer->buffer(distanceTrack * distanceTrackTol, 4, te::gm::CapButtType);
+
+    //check on tree
+    te::gm::Envelope ext(*geomLineSearchBuffer->getMBR());
+
+    std::vector<int> resultsTreeObjs;
+
+    m_centroidRtree.search(ext, resultsTreeObjs);
 
     std::vector<int> resultsTree;
 
@@ -760,7 +792,7 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
     ++it;
   }
 
-  return lineBuffer->buffer(distanceBuffer, 16, te::gm::CapButtType);
+  return lineBuffer->buffer(distanceTrack / 2., 16, te::gm::CapButtType);
 }
 
 void te::qt::plugins::tv5plugins::TrackAutoClassifier::getTrackInfo(te::gm::Point* point0, te::gm::Point* point1)
@@ -1553,11 +1585,11 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::processDataSet(te::da::Da
     task.pulse();
   }
 
-  QApplication::restoreOverrideCursor();
-
   m_classify = true;
 
   createRTree();
+
+  QApplication::restoreOverrideCursor();
 }
 
 bool te::qt::plugins::tv5plugins::TrackAutoClassifier::panMousePressEvent(QMouseEvent* e)

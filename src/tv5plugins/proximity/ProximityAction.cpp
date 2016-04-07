@@ -25,7 +25,6 @@
 
 // Terralib
 #include <terralib/qt/af/ApplicationController.h>
-#include <terralib/qt/af/Project.h>
 #include "qt/ProximityDialog.h"
 #include "ProximityAction.h"
 
@@ -47,17 +46,12 @@ te::qt::plugins::tv5plugins::ProximityAction::~ProximityAction()
 void te::qt::plugins::tv5plugins::ProximityAction::onActionActivated(bool checked)
 {
   //get input layers
-  te::qt::af::Project* prj = te::qt::af::ApplicationController::getInstance().getProject();
-
-  std::list<te::map::AbstractLayerPtr> list;
-
-  if (prj)
-    list = prj->getVisibleSingleLayers();
+  std::list<te::map::AbstractLayerPtr> layersList = getLayers();
 
   //show interface
-  te::qt::plugins::tv5plugins::ProximityDialog dlg(te::qt::af::ApplicationController::getInstance().getMainWindow());
+  te::qt::plugins::tv5plugins::ProximityDialog dlg(te::qt::af::AppCtrlSingleton::getInstance().getMainWindow());
 
-  dlg.setLayerList(list);
+  dlg.setLayerList(layersList);
 
   if(dlg.exec() == QDialog::Accepted)
   {

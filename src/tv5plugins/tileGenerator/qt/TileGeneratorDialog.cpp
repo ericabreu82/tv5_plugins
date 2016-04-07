@@ -24,6 +24,7 @@
 */
 
 // TerraLib
+#include <terralib/qt/af/ApplicationController.h>
 #include <terralib/qt/widgets/tools/ExtentAcquire.h>
 
 #include "../core/TileGeneratorService.h"
@@ -65,16 +66,35 @@ te::qt::plugins::tv5plugins::TileGeneratorDialog::TileGeneratorDialog(QWidget* p
   for(int i = 0; i < list.size(); ++i)
     m_ui->m_formatComboBox->addItem(list[i].constData());
 
+  //create action
+  m_action = new QAction(this);
+  m_action->setIcon(QIcon::fromTheme("pointer"));
+  m_action->setToolTip("Acquire extent from map display.");
+  m_action->setCheckable(true);
+  m_action->setEnabled(true);
+  m_action->setObjectName("tileGen_boxTool");
+
   //connects
-  connect(m_ui->m_toolButton, SIGNAL(toggled(bool)), this, SLOT(onToolButtonClicked(bool)));
+  connect(m_action, SIGNAL(triggered(bool)), this, SLOT(onToolButtonClicked(bool)));
   connect(m_ui->m_dirToolButton, SIGNAL(clicked()), this, SLOT(onDirToolButtonClicked()));
   connect(m_ui->m_validatePushButton, SIGNAL(clicked()), this, SLOT(onValidatePushButtonClicked()));
   connect(m_ui->m_okPushButton, SIGNAL(clicked()), this, SLOT(onOkPushButtonClicked()));
+
+  // Get the action group of map tools.
+  m_ui->m_toolButton->setDefaultAction(m_action);
+
+  QActionGroup* toolsGroup = te::qt::af::AppCtrlSingleton::getInstance().findActionGroup("Map.ToolsGroup");
+  
+  if (toolsGroup)
+    toolsGroup->addAction(m_action);
+  
+  m_clearTool = false;
 }
 
 te::qt::plugins::tv5plugins::TileGeneratorDialog::~TileGeneratorDialog()
 {
-
+  if (m_clearTool)
+    m_appDisplay->setCurrentTool(0);
 }
 
 void te::qt::plugins::tv5plugins::TileGeneratorDialog::setExtentInfo(te::gm::Envelope env, int srid)
@@ -112,7 +132,10 @@ void te::qt::plugins::tv5plugins::TileGeneratorDialog::onEnvelopeAcquired(te::gm
 void te::qt::plugins::tv5plugins::TileGeneratorDialog::onToolButtonClicked(bool flag)
 {
   if (!flag)
+  {
+    m_clearTool = false;
     return;
+  }
 
   if (!m_appDisplay)
     return;
@@ -121,6 +144,8 @@ void te::qt::plugins::tv5plugins::TileGeneratorDialog::onToolButtonClicked(bool 
   m_appDisplay->setCurrentTool(ea);
 
   connect(ea, SIGNAL(extentAcquired(te::gm::Envelope)), this, SLOT(onEnvelopeAcquired(te::gm::Envelope)));
+
+  m_clearTool = true;
 }
 
 void te::qt::plugins::tv5plugins::TileGeneratorDialog::onDirToolButtonClicked()

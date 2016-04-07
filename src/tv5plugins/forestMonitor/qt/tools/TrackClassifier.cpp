@@ -125,6 +125,12 @@ bool te::qt::plugins::tv5plugins::TrackClassifier::eventFilter(QObject* watched,
 
     return true;
   }
+  else if (e->type() == QEvent::Enter)
+  {
+    if (m_cursor.shape() != Qt::BlankCursor)
+      m_display->setCursor(m_cursor);
+    return false;
+  }
 
   return false;
 }

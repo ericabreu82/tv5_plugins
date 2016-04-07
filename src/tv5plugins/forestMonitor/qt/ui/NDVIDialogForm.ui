@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>535</width>
-    <height>385</height>
+    <height>408</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -98,6 +98,16 @@
             </item>
            </layout>
           </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="m_invertCheckBox">
+            <property name="layoutDirection">
+             <enum>Qt::RightToLeft</enum>
+            </property>
+            <property name="text">
+             <string>Invert</string>
+            </property>
+           </widget>
+          </item>
           <item row="2" column="0">
            <layout class="QGridLayout" name="gridLayout_3">
             <item row="0" column="0">
@@ -137,13 +147,13 @@
             </item>
            </layout>
           </item>
-          <item row="1" column="0">
-           <widget class="QCheckBox" name="m_invertCheckBox">
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="m_rgbComposeCheckBox">
             <property name="layoutDirection">
              <enum>Qt::RightToLeft</enum>
             </property>
             <property name="text">
-             <string>Invert</string>
+             <string>RGB Compose</string>
             </property>
            </widget>
           </item>
@@ -343,8 +353,10 @@
  <tabstops>
   <tabstop>m_nirLayerComboBox</tabstop>
   <tabstop>m_nirBandComboBox</tabstop>
+  <tabstop>m_invertCheckBox</tabstop>
   <tabstop>m_visLayerComboBox</tabstop>
   <tabstop>m_visBandComboBox</tabstop>
+  <tabstop>m_rgbComposeCheckBox</tabstop>
   <tabstop>m_gainLineEdit</tabstop>
   <tabstop>m_offsetLineEdit</tabstop>
   <tabstop>m_normalizeCheckBox</tabstop>
@@ -363,12 +375,44 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>434</x>
-     <y>373</y>
+     <x>523</x>
+     <y>396</y>
     </hint>
     <hint type="destinationlabel">
      <x>432</x>
      <y>406</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>m_rgbComposeCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>m_visBandComboBox</receiver>
+   <slot>setDisabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>481</x>
+     <y>164</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>469</x>
+     <y>144</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>m_rgbComposeCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>m_visLayerComboBox</receiver>
+   <slot>setDisabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>492</x>
+     <y>166</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>400</x>
+     <y>140</y>
     </hint>
    </hints>
   </connection>

@@ -141,10 +141,10 @@ namespace te
           std::map<int, te::da::ObjectId*> m_centroidObjIdMap;
 
           te::gm::Point* m_point0;
-          te::da::ObjectId* m_objId0;
+          //te::da::ObjectId* m_objId0;
 
           te::gm::Point* m_point1;
-          te::da::ObjectId* m_objId1;
+          //te::da::ObjectId* m_objId1;
 
           std::auto_ptr<te::mem::DataSet> m_dataSet;
 

@@ -88,7 +88,7 @@ namespace te
           /*! \brief Destructor. */
           ~TrackAutoClassifier();
 
-          void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceBufferLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol, QLineEdit* threshold);
+          void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceTrackLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* distanceTrackToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol, QLineEdit* threshold);
 
           //@}
 
@@ -172,8 +172,9 @@ namespace te
           int m_starterId;
 
           QLineEdit* m_distLineEdit;
-          QLineEdit* m_distanceBufferLineEdit;
+          QLineEdit* m_distanceTrackLineEdit;
           QLineEdit* m_distanceToleranceFactorLineEdit;
+          QLineEdit* m_distanceTrackToleranceFactorLineEdit;
           QLineEdit* m_polyAreaMin;
           QLineEdit* m_polyAreaMax;
           QLineEdit* m_maxDeadLineEdit;

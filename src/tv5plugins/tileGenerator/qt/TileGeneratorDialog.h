@@ -94,6 +94,10 @@ namespace te
             te::gm::Envelope m_env;
 
             int m_srid;
+
+            QAction* m_action;
+
+            bool m_clearTool;
         }; 
       }   // end namespace thirdParty
     }     // end namespace plugins
