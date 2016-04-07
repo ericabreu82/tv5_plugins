@@ -90,6 +90,8 @@ namespace te
 
           void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceTrackLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* distanceTrackToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol, QLineEdit* threshold);
 
+          void setAdjustTrack(int nSteps);
+
           //@}
 
           /** @name AbstractTool Methods
@@ -134,6 +136,8 @@ namespace te
           te::gm::Point* calculateGuessPoint(te::gm::Point* p, int parcelId);
 
           te::gm::Point* getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, bool& abort);
+
+          void adjustTrack(te::gm::Point* point, double& dx, double& dy);
 
           std::auto_ptr<te::da::DataSetType> createTreeDataSetType();
 
@@ -184,6 +188,10 @@ namespace te
           double m_dx;
           double m_dy;
           double m_distance;
+
+          bool m_adjustTrack;
+          int m_adjustTrackSteps;
+          std::list<te::gm::Point*> m_adjustTrackPoints;
 
           bool m_classify;
 

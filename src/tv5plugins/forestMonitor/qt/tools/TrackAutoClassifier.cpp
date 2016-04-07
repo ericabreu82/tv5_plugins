@@ -95,6 +95,8 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::TrackAutoClassifier(te::qt::wi
   m_deadCount = 0;
   m_deltaTol = DELTA_TOL;
 
+  m_adjustTrack = false;
+
   m_classify = false;
 
   setCursor(cursor);
@@ -115,6 +117,8 @@ te::qt::plugins::tv5plugins::TrackAutoClassifier::~TrackAutoClassifier()
 {
   QPixmap* draft = m_display->getDraftPixmap();
   draft->fill(Qt::transparent);
+
+  m_adjustTrackPoints.clear();
 
   m_centroidRtree.clear();
   te::common::FreeContents(m_centroidGeomMap);
@@ -142,6 +146,12 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::setLineEditComponents(QLi
   m_maxDeadLineEdit = maxDead;
   m_deadTolLineEdit = deadTol;
   m_thresholdLineEdit = threshold;
+}
+
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::setAdjustTrack(int nSteps)
+{
+  m_adjustTrack = true;
+  m_adjustTrackSteps = nSteps;
 }
 
 bool te::qt::plugins::tv5plugins::TrackAutoClassifier::eventFilter(QObject* watched, QEvent* e)
@@ -208,7 +218,7 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::selectObjects(QMouseEvent
   if (!m_coordLayer.get())
     return;
 
-  QPointF pixelOffset(10.0, 10.0);
+  QPointF pixelOffset(7.0, 7.0);
 #if (QT_VERSION >= 0x050000)
   QRectF rect = QRectF(e->localPos() - pixelOffset, e->localPos() + pixelOffset);
 #else
@@ -591,6 +601,12 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
 
   while (insideParcel)
   {
+    //adjust track
+    if (m_adjustTrack)
+    {
+
+    }
+
     te::gm::Point* guestPoint = createGuessPoint(rootPoint, dx, dy, srid);
 
     //create envelope to find if guest point exist
@@ -1365,6 +1381,21 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackAutoClassifier::getCandidatePoi
   abort = false;
 
   return point;
+}
+
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::adjustTrack(te::gm::Point* point, double& dx, double& dy)
+{
+  m_adjustTrackPoints.push_back(point);
+
+  if (m_adjustTrackPoints.size() == m_adjustTrackSteps + 1)
+  {
+    te::gm::Point* p0 = m_adjustTrackPoints.front();
+
+    dx = point->getX() - p0->getX();
+    dy = point->getY() - p0->getY();
+
+    m_adjustTrackPoints.pop_front();
+  }
 }
 
 std::auto_ptr<te::da::DataSetType> te::qt::plugins::tv5plugins::TrackAutoClassifier::createTreeDataSetType()

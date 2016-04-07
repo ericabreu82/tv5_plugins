@@ -174,7 +174,7 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::selectObjects(QMouseEvent
   if (!m_coordLayer.get())
     return;
 
-  QPointF pixelOffset(10.0, 10.0);
+  QPointF pixelOffset(7.0, 7.0);
 #if (QT_VERSION >= 0x050000)
   QPointF qtPoint = e->localPos();
   QRectF rect = QRectF(e->localPos() - pixelOffset, e->localPos() + pixelOffset);
