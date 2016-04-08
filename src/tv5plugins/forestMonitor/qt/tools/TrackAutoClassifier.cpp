@@ -599,13 +599,13 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
 
   bool insideParcel = true;
 
+  m_adjustTrackPoints.clear();
+
   while (insideParcel)
   {
     //adjust track
     if (m_adjustTrack)
-    {
-
-    }
+      adjustTrack(rootPoint, dx, dy);
 
     te::gm::Point* guestPoint = createGuessPoint(rootPoint, dx, dy, srid);
 
@@ -692,8 +692,9 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
         {
           invert = true;
           insideParcel = true;
-          dx = dx * -1;
-          dy = dy * -1;
+          dx = m_dx * -1;
+          dy = m_dy * -1;
+          m_adjustTrackPoints.clear();
           rootPoint = starter;
           m_deadCount = 0;
         }
@@ -713,8 +714,9 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
         {
           invert = true;
           insideParcel = true;
-          dx = dx * -1;
-          dy = dy * -1;
+          dx = m_dx * -1;
+          dy = m_dy * -1;
+          m_adjustTrackPoints.clear();
           rootPoint = starter;
           m_deadCount = 0;
         }
@@ -759,8 +761,9 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
           {
             invert = true;
             insideParcel = true;
-            dx = dx * -1;
-            dy = dy * -1;
+            dx = m_dx * -1;
+            dy = m_dy * -1;
+            m_adjustTrackPoints.clear();
             rootPoint = starter;
             m_deadCount = 0;
           }
@@ -774,8 +777,9 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
       {
         invert = true;
         insideParcel = true;
-        dx = dx * -1;
-        dy = dy * -1;
+        dx = m_dx * -1;
+        dy = m_dy * -1;
+        m_adjustTrackPoints.clear();
         rootPoint = starter;
         m_deadCount = 0;
       }
@@ -1387,12 +1391,17 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::adjustTrack(te::gm::Point
 {
   m_adjustTrackPoints.push_back(point);
 
-  if (m_adjustTrackPoints.size() == m_adjustTrackSteps + 1)
+  if (m_adjustTrackPoints.size() == m_adjustTrackSteps)
   {
     te::gm::Point* p0 = m_adjustTrackPoints.front();
 
-    dx = point->getX() - p0->getX();
-    dy = point->getY() - p0->getY();
+    double bigDistance = p0->distance(point);
+
+    double big_dx = point->getX() - p0->getX();
+    double big_dy = point->getY() - p0->getY();
+
+    dx = m_distance * big_dx / bigDistance;
+    dy = m_distance * big_dy / bigDistance;
 
     m_adjustTrackPoints.pop_front();
   }
