@@ -1540,11 +1540,11 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::processDataSet(te::da::Da
 
     std::list<te::gm::Point*> track;
 
-    std::auto_ptr<te::gm::Geometry> buffer(createBuffer(rootPoint, objIdRoot, m_coordLayer->getSRID(), gp->getName(), line, track));
-
-    if (buffer.get())
+    try
     {
-      try
+      std::auto_ptr<te::gm::Geometry> buffer(createBuffer(rootPoint, objIdRoot, m_coordLayer->getSRID(), gp->getName(), line, track));
+
+      if (buffer.get())
       {
         //create dataset type
         te::mem::DataSet* liveDS = 0;
@@ -1613,14 +1613,15 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::processDataSet(te::da::Da
           }
         }
       }
-      catch (std::exception& e)
-      {
-        QApplication::restoreOverrideCursor();
-
-        QMessageBox::critical(m_display, tr("Error"), QString(tr("Error auto classifying track. Details:") + " %1.").arg(e.what()));
-        break;
-      }
     }
+    catch (std::exception& e)
+    {
+      QApplication::restoreOverrideCursor();
+
+      QMessageBox::critical(m_display, tr("Error"), QString(tr("Error auto classifying track. Details:") + " %1.").arg(e.what()));
+      break;
+    }
+    
 
     task.pulse();
   }
