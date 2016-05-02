@@ -15,7 +15,7 @@
 /*!
   \file terraview5plugins/src/tv5plugins/forestMonitor/qt/tools/TrackDeadClassifier.h
 
-  \brief This class implements a concrete tool to track dead roots classifier
+  \brief This class implements a concrete tool to track classifier
 */
 
 #ifndef __TE_QT_PLUGINS_THIRDPARTY_INTERNAL_TOOL_TRACKDEADCLASSIFIER_H
@@ -37,7 +37,11 @@
 
 namespace te
 {
+  namespace da { class Where; }
+
   namespace gm { class Geometry; }
+
+  namespace rst { class Raster; }
 
   namespace qt
   {
@@ -52,9 +56,9 @@ namespace te
       {
 
         /*!
-          \class TrackDeadClassifier
+          \class TrackClassifier
 
-          \brief This class implements a concrete tool to track dead roots classifier
+          \brief This class implements a concrete tool to track classifier
 
           \ingroup widgets
           */
@@ -84,7 +88,7 @@ namespace te
           /*! \brief Destructor. */
           ~TrackDeadClassifier();
 
-          void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* threshold);
+          void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceTrackLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* distanceTrackToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* deadTol, QLineEdit* threshold);
 
           //@}
 
@@ -102,18 +106,24 @@ namespace te
           void selectObjects(QMouseEvent* e);
 
           void classifyObjects();
-
+          
           void cancelOperation();
+
+          void deleteOperation();
+
+          void removeObjects();
 
           void drawSelecteds();
 
-          void createDeadTrack(int srid, std::string gpName, std::list<te::gm::Point*>& track);
+          te::gm::Geometry* createBuffer(te::gm::Point* rootPoint, te::da::ObjectId* objIdRoot, int srid, std::string gpName, te::gm::LineString*& lineBuffer, std::list<te::gm::Point*>& track);
 
-          void getTrackInfo();
+          void getTrackInfo(te::gm::Point* point0, te::gm::Point* point1);
 
           std::auto_ptr<te::gm::Geometry> getParcelGeeom(te::gm::Geometry* root, int& parcelId);
 
           te::gm::Point* createGuessPoint(te::gm::Point* p, double dx, double dy, int srid);
+
+          void getClassDataSets(te::da::DataSetType* dsType, te::mem::DataSet*& liveDataSet, te::mem::DataSet*& intruderDataSet, te::gm::Geometry* buffer);
 
           void createRTree();
 
@@ -121,7 +131,15 @@ namespace te
 
           void getStartIdValue();
 
-          bool deadTrackMouseMove(QMouseEvent* e);
+          bool isClassified(te::da::ObjectId* objId, double& area, std::string& classValue);
+
+          te::gm::Point* calculateGuessPoint(te::gm::Point* p, int parcelId);
+
+          te::gm::Point* getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, bool& abort);
+
+          std::auto_ptr<te::da::DataSetType> createTreeDataSetType();
+
+          void processDataSet();
 
           bool panMousePressEvent(QMouseEvent* e);
 
@@ -133,39 +151,50 @@ namespace te
 
           te::map::AbstractLayerPtr m_coordLayer;         //!<The layer that will be classified.
           te::map::AbstractLayerPtr m_parcelLayer;        //!<The layer with geometry restriction.
-          
-          te::rst::Raster* m_ndviRaster;
 
           te::sam::rtree::Index<int> m_centroidRtree;
           std::map<int, te::gm::Geometry*> m_centroidGeomMap;
           std::map<int, te::da::ObjectId*> m_centroidObjIdMap;
 
           te::gm::Point* m_point0;
-          //te::da::ObjectId* m_objId0;
+          te::da::ObjectId* m_objId0;
 
           te::gm::Point* m_point1;
-          //te::da::ObjectId* m_objId1;
+          te::da::ObjectId* m_objId1;
+
+          te::da::ObjectIdSet* m_track;
 
           std::auto_ptr<te::mem::DataSet> m_dataSet;
 
-          QLineEdit* m_distLineEdit;
-          QLineEdit* m_distanceToleranceFactorLineEdit;
-          QLineEdit* m_thresholdLineEdit;
-
           int m_starterId;
+
+          QLineEdit* m_distLineEdit;
+          QLineEdit* m_distanceTrackLineEdit;
+          QLineEdit* m_distanceToleranceFactorLineEdit;
+          QLineEdit* m_distanceTrackToleranceFactorLineEdit;
+          QLineEdit* m_polyAreaMin;
+          QLineEdit* m_polyAreaMax;
+          QLineEdit* m_deadTolLineEdit;
+          QLineEdit* m_thresholdLineEdit;
 
           double m_dx;
           double m_dy;
           double m_distance;
+
+          bool m_classify;
+
+          unsigned int m_deadCount;
+          double m_deltaTol;
+
+          double m_totalDistance;
+
+          te::rst::Raster* m_ndviRaster;
 
           //pan attributes
           bool m_panStarted;      //!< Flag that indicates if pan operation was started.
           QPoint m_origin;        //!< Origin point on mouse pressed.
           QPoint m_delta;         //!< Difference between pressed point and destination point on mouse move.
           QCursor m_actionCursor; //!< An optional cursor to be used during the pan user action.
-          QCursor m_curCursor;
-
-          double m_totalDistance;
         };
 
       } // end namespace tv5plugins

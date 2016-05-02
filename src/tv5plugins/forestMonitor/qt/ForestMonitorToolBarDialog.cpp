@@ -349,7 +349,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackDeadClassif
   te::map::AbstractLayerPtr layerPoly = varLayerPoly.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::TrackDeadClassifier* tool = new te::qt::plugins::tv5plugins::TrackDeadClassifier(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, layerPoly);
-  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distTolLineEdit, m_ui->m_thresholdLineEdit);
+  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distTrackLineEdit, m_ui->m_distTolLineEdit, m_ui->m_distTrackTolLineEdit, m_ui->m_polyAreaMinLineEdit, m_ui->m_polyAreaMaxLineEdit, m_ui->m_deadTolLineEdit, m_ui->m_thresholdLineEdit);
   m_appDisplay->setCurrentTool(tool);
 
   m_clearTool = true;
