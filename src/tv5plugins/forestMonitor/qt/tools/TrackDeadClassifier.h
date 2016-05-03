@@ -160,7 +160,6 @@ namespace te
           te::da::ObjectId* m_objId0;
 
           te::gm::Point* m_point1;
-          te::da::ObjectId* m_objId1;
 
           te::da::ObjectIdSet* m_track;
 

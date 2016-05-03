@@ -76,7 +76,6 @@ te::qt::plugins::tv5plugins::TrackDeadClassifier::TrackDeadClassifier(te::qt::wi
   m_point0(0),
   m_objId0(0),
   m_point1(0),
-  m_objId1(0),
   m_starterId(0),
   m_panStarted(false)
 {
@@ -201,8 +200,10 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::selectObjects(QMouseEvent
 
   QPointF pixelOffset(7.0, 7.0);
 #if (QT_VERSION >= 0x050000)
+  QPointF qtPoint = e->localPos();
   QRectF rect = QRectF(e->localPos() - pixelOffset, e->localPos() + pixelOffset);
 #else
+  QPointF qtPoint = e->posF();
   QRectF rect = QRectF(e->posF() - pixelOffset, e->posF() + pixelOffset);
 #endif
 
@@ -244,7 +245,61 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::selectObjects(QMouseEvent
     // Generates a geometry from the given extent. It will be used to refine the results
     std::auto_ptr<te::gm::Geometry> geometryFromEnvelope(te::gm::GetGeomFromEnvelope(&reprojectedEnvelope, m_coordLayer->getSRID()));
 
-    while (dataset->moveNext())
+    te::gm::Point* pClicked = 0;
+
+    te::da::ObjectId* objId = 0;
+
+    if (dataset->isEmpty())
+    {
+      QPointF qtWorldPoint = m_display->transform(qtPoint);
+
+      pClicked = new te::gm::Point(qtWorldPoint.x(), qtWorldPoint.y(), m_display->getSRID());
+
+      if ((m_coordLayer->getSRID() != TE_UNKNOWN_SRS) && (m_display->getSRID() != TE_UNKNOWN_SRS) && (m_coordLayer->getSRID() != m_display->getSRID()))
+        pClicked->transform(m_coordLayer->getSRID());
+    }
+    else
+    {
+      while (dataset->moveNext())
+      {
+        std::auto_ptr<te::gm::Geometry> g(dataset->getGeometry(gp->getName()));
+
+        if (g->getSRID() == TE_UNKNOWN_SRS)
+          g->setSRID(m_coordLayer->getSRID());
+
+        if (!g->intersects(geometryFromEnvelope.get()))
+          continue;
+
+        pClicked = getPoint(dynamic_cast<te::gm::Geometry*>(g->clone()));
+        m_objId0 = te::da::GenerateOID(dataset.get(), pnames);
+
+        break;
+      }
+    }
+
+    if (pClicked)
+    {
+      if (!m_point0)
+      {
+        m_point0 = pClicked;
+        m_objId0 = objId;
+      }
+      else if (!m_point1)
+      {
+        m_point1 = pClicked;
+        m_totalDistance = m_point0->distance(m_point1);
+
+        delete objId;
+      }
+      else
+      {
+        delete pClicked;
+        delete objId;
+      }
+    }
+
+
+    /*while (dataset->moveNext())
     {
       std::auto_ptr<te::gm::Geometry> g(dataset->getGeometry(gp->getName()));
 
@@ -264,13 +319,12 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::selectObjects(QMouseEvent
       if (!m_point1)
       {
         m_point1 = getPoint(dynamic_cast<te::gm::Geometry*>(g->clone()));
-        m_objId1 = te::da::GenerateOID(dataset.get(), pnames);
 
         m_totalDistance = m_point0->distance(m_point1);
 
         break;
       }
-    }
+    }*/
   }
   catch (std::exception& e)
   {
@@ -308,8 +362,6 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::cancelOperation()
 
   delete m_point1;
   m_point1 = 0;
-  delete m_objId1;
-  m_objId1 = 0;
 
   m_classify = false;
 
@@ -588,7 +640,8 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackDeadClassifier::createBuffer
 
   track.push_back(new te::gm::Point(*rootPoint));
 
-  m_track->add(objIdRoot);
+  if (objIdRoot)
+    m_track->add(objIdRoot);
 
   QApplication::setOverrideCursor(Qt::WaitCursor);
 
