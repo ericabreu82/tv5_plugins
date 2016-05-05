@@ -341,6 +341,9 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::classifyObjects()
 {
   processDataSet();
 
+  //clear data
+  cancelOperation();
+
   //repaint the layer
   te::qt::widgets::MultiThreadMapDisplay* mtmp = dynamic_cast<te::qt::widgets::MultiThreadMapDisplay*>(m_display);
   if (mtmp)
@@ -484,6 +487,8 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::deleteOperation()
   removeObjects();
 
   createRTree();
+
+  cancelOperation();
 
   //repaint the layer
   te::qt::widgets::MultiThreadMapDisplay* mtmp = dynamic_cast<te::qt::widgets::MultiThreadMapDisplay*>(m_display);
