@@ -68,6 +68,8 @@ or (at your option) any later version.
 #define DELTA_TOL 0.1
 #define NDVI_THRESHOLD 120.0
 
+double TePerpendicularDistance(const te::gm::Point& first, const te::gm::Point& last, te::gm::Point& pin, te::gm::Point*& pinter);
+
 te::qt::plugins::tv5plugins::TrackDeadClassifier::TrackDeadClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr rasterLayer, QObject* parent)
   : AbstractTool(display, parent),
   m_coordLayer(coordLayer),
@@ -301,34 +303,6 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::selectObjects(QMouseEvent
         delete objId;
       }
     }
-
-
-    /*while (dataset->moveNext())
-    {
-      std::auto_ptr<te::gm::Geometry> g(dataset->getGeometry(gp->getName()));
-
-      if (g->getSRID() == TE_UNKNOWN_SRS)
-        g->setSRID(m_coordLayer->getSRID());
-
-      if (!g->intersects(geometryFromEnvelope.get()))
-        continue;
-
-      if (!m_point0)
-      {
-        m_point0 = getPoint(dynamic_cast<te::gm::Geometry*>(g->clone()));
-        m_objId0 = te::da::GenerateOID(dataset.get(), pnames);
-        break;
-      }
-
-      if (!m_point1)
-      {
-        m_point1 = getPoint(dynamic_cast<te::gm::Geometry*>(g->clone()));
-
-        m_totalDistance = m_point0->distance(m_point1);
-
-        break;
-      }
-    }*/
   }
   catch (std::exception& e)
   {
@@ -668,6 +642,8 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackDeadClassifier::createBuffer
   if (parcelGeom->getSRID() != rootPoint->getSRID())
     parcelGeom->transform(rootPoint->getSRID());
 
+  te::gm::Point* newRoot = 0;
+
   while (true)
   {
     te::gm::Point* guestPoint = createGuessPoint(rootPoint, dx, dy, srid);
@@ -761,7 +737,17 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackDeadClassifier::createBuffer
 
       track.push_back(new te::gm::Point(*rootPoint));
     }
+
+    //adjust root point to directional line
+    if (newRoot)
+      delete newRoot;
+
+    double dist = TePerpendicularDistance(*m_point0, *m_point1, *rootPoint, newRoot);
+
+    rootPoint = newRoot;
   }
+
+  delete newRoot;
 
   QApplication::restoreOverrideCursor();
 
@@ -965,7 +951,13 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::getClassDataSets(te::da::
         item->setDouble(3, dataset->getDouble("area"));
 
         //forest type
-        item->setString(4, "INTRUDER");
+        std::string curClass = dataset->getString(4);
+        if (curClass == "DEAD")
+        {
+          item->setString(4, "REMOVED");
+        }
+        else
+          item->setString(4, "INTRUDER");
 
         //set geometry
         item->setGeometry(5, g.release());
@@ -1096,7 +1088,7 @@ bool te::qt::plugins::tv5plugins::TrackDeadClassifier::isDead(te::da::ObjectId* 
 
     std::string classValue = ds->getString("type");
 
-    if (classValue == "DEAD")
+    if (classValue == "DEAD" || classValue == "REMOVED")
       return true;
 
     if (classValue == "UNKNOWN")
@@ -1514,4 +1506,49 @@ bool te::qt::plugins::tv5plugins::TrackDeadClassifier::panMouseReleaseEvent(QMou
   drawSelecteds();
 
   return true;
+}
+
+double TePerpendicularDistance(const te::gm::Point& first, const te::gm::Point& last, te::gm::Point& pin, te::gm::Point*& pinter)
+{
+  double d12, xmin, ymin;
+
+  double xi = first.getX();
+  double xf = last.getX();
+  double yi = first.getY();
+  double yf = last.getY();
+  double x = pin.getX();
+  double y = pin.getY();
+
+  double dx = xf - xi;
+  double dy = yf - yi;
+  double a2 = (y - yi) * dx - (x - xi)*dy;
+
+  if (dx == 0. && dy == 0.)
+  {
+    d12 = sqrt(((x - xi) * (x - xi)) + ((y - yi) * (y - yi)));
+    d12 *= d12;
+  }
+  else
+    d12 = a2 * a2 / (dx * dx + dy * dy);
+
+  if (dx == 0.)
+  {
+    xmin = xi;
+    ymin = y;
+  }
+  else if (dy == 0.)
+  {
+    xmin = x;
+    ymin = yi;
+  }
+  else
+  {
+    double alfa = dy / dx;
+    xmin = (x + alfa * (y - yi) + alfa * alfa * xi) / (1. + alfa * alfa);
+    ymin = (x - xmin) / alfa + y;
+  }
+
+  pinter = new te::gm::Point(xmin, ymin, pin.getSRID());
+
+  return (sqrt(d12));
 }
