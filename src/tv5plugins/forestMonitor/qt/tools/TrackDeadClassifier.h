@@ -131,15 +131,17 @@ namespace te
 
           void getStartIdValue();
 
-          bool isClassified(te::da::ObjectId* objId, double& area, std::string& classValue);
+          bool isDead(te::da::ObjectId* objId, double& area);
 
           te::gm::Point* calculateGuessPoint(te::gm::Point* p, int parcelId);
 
-          te::gm::Point* getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, bool& abort);
+          te::gm::Point* getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId);
 
           std::auto_ptr<te::da::DataSetType> createTreeDataSetType();
 
           void processDataSet();
+
+          bool deadTrackMouseMove(QMouseEvent* e);
 
           bool panMousePressEvent(QMouseEvent* e);
 

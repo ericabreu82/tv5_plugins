@@ -166,7 +166,11 @@ bool te::qt::plugins::tv5plugins::TrackDeadClassifier::eventFilter(QObject* watc
   {
     QMouseEvent* event = static_cast<QMouseEvent*>(e);
 
-    return panMouseMoveEvent(event);
+    panMouseMoveEvent(event);
+
+    deadTrackMouseMove(event);
+
+    return true;
   }
   else if (e->type() == QEvent::KeyPress)
   {
@@ -737,32 +741,25 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackDeadClassifier::createBuffer
     {
       //live point
       te::da::ObjectId* objIdCandidate = 0;
-      bool abort = false;
-      te::gm::Point* pCandidate = getCandidatePoint(rootPoint, guestPoint, srid, resultsTree, objIdCandidate, abort);
 
-      if (abort)
+      te::gm::Point* pCandidate = getCandidatePoint(rootPoint, guestPoint, srid, resultsTree, objIdCandidate);
+
+      if (!pCandidate)
       {
-        break;
+        te::gm::Point* pGuessCalculated = calculateGuessPoint(guestPoint, parcelId);
+
+        rootPoint = pGuessCalculated;
       }
       else
       {
-        if (!pCandidate)
-        {
-          te::gm::Point* pGuessCalculated = calculateGuessPoint(guestPoint, parcelId);
+        rootPoint = pCandidate;
 
-          rootPoint = pGuessCalculated;
-        }
-        else
-        {
-          rootPoint = pCandidate;
+        m_track->add(objIdCandidate);
 
-          m_track->add(objIdCandidate);
-
-          m_deadCount = 0;
-        }
-
-        track.push_back(new te::gm::Point(*rootPoint));
+        m_deadCount = 0;
       }
+
+      track.push_back(new te::gm::Point(*rootPoint));
     }
   }
 
@@ -1078,7 +1075,7 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::getStartIdValue()
   ++m_starterId;
 }
 
-bool te::qt::plugins::tv5plugins::TrackDeadClassifier::isClassified(te::da::ObjectId* objId, double& area, std::string& classValue)
+bool te::qt::plugins::tv5plugins::TrackDeadClassifier::isDead(te::da::ObjectId* objId, double& area)
 {
   if (!m_coordLayer.get())
     throw;
@@ -1097,21 +1094,19 @@ bool te::qt::plugins::tv5plugins::TrackDeadClassifier::isClassified(te::da::Obje
   {
     ds->moveFirst();
 
-    classValue = ds->getString("type");
+    std::string classValue = ds->getString("type");
 
-    if (classValue == "CREATED")
-      return false;
+    if (classValue == "DEAD")
+      return true;
 
     if (classValue == "UNKNOWN")
     {
       //get area attribute and check threshold
       area = ds->getDouble("area");
-
-      return false;
     }
   }
 
-  return true;
+  return false;
 }
 
 te::gm::Point* te::qt::plugins::tv5plugins::TrackDeadClassifier::calculateGuessPoint(te::gm::Point* p, int parcelId)
@@ -1199,7 +1194,7 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackDeadClassifier::calculateGuessP
   return pGuess;
 }
 
-te::gm::Point* te::qt::plugins::tv5plugins::TrackDeadClassifier::getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId, bool& abort)
+te::gm::Point* te::qt::plugins::tv5plugins::TrackDeadClassifier::getCandidatePoint(te::gm::Point* pRoot, te::gm::Point* pGuess, int srid, std::vector<int>& resultsTree, te::da::ObjectId*& candidateOjbId)
 {
   double lowerDistance = std::numeric_limits<double>::max();
 
@@ -1234,9 +1229,7 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackDeadClassifier::getCandidatePoi
 
     double area = 0.;
 
-    std::string classValue = "";
-
-    if (!isClassified(itObjId->second, area, classValue))
+    if (!isDead(itObjId->second, area))
     {
       if ((area > polyAreaMin && area < polyAreaMax) || area == 0.)
       {
@@ -1258,15 +1251,7 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackDeadClassifier::getCandidatePoi
         }
       }
     }
-    else
-    {
-      abort = true;
-
-      return 0;
-    }
   }
-
-  abort = false;
 
   return point;
 }
@@ -1405,6 +1390,50 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::processDataSet()
   createRTree();
 
   QApplication::restoreOverrideCursor();
+}
+
+bool te::qt::plugins::tv5plugins::TrackDeadClassifier::deadTrackMouseMove(QMouseEvent* e)
+{
+  if (!m_point0 || m_point1)
+    return false;
+
+  QPointF pw = m_display->transform(e->localPos());
+
+  te::gm::Coord2D cFinal = te::gm::Coord2D(pw.x(), pw.y());
+
+  // Clear!
+  QPixmap* draft = m_display->getDraftPixmap();
+  draft->fill(Qt::transparent);
+
+  const te::gm::Envelope& env = m_display->getExtent();
+
+  // Prepares the canvas
+  te::qt::widgets::Canvas canvas(m_display->width(), m_display->height());
+  canvas.setDevice(draft, false);
+  canvas.setWindow(env.m_llx, env.m_lly, env.m_urx, env.m_ury);
+  canvas.setRenderHint(QPainter::Antialiasing, true);
+
+  // Build the geometry
+  te::gm::LineString* line = new te::gm::LineString(2, te::gm::LineStringType);
+
+  line->setPoint(0, m_point0->getX(), m_point0->getY());
+  line->setPoint(1, cFinal.getX(), cFinal.getY());
+
+  // Setup canvas style
+  QPen pen;
+  pen.setColor(QColor(100, 177, 216));
+  pen.setWidth(3);
+
+  canvas.setLineColor(pen.color().rgba());
+  canvas.setLineWidth(pen.width());
+
+  canvas.draw(line);
+
+  delete line;
+
+  m_display->repaint();
+
+  return true;
 }
 
 bool te::qt::plugins::tv5plugins::TrackDeadClassifier::panMousePressEvent(QMouseEvent* e)
