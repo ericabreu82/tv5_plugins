@@ -401,7 +401,7 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::deleteOperation()
   std::auto_ptr<te::gm::LineString> lineSearchBuffer(new te::gm::LineString(2, te::gm::LineStringType, m_coordLayer->getSRID()));
   lineSearchBuffer->setPoint(0, m_point0->getX(), m_point0->getY());
   lineSearchBuffer->setPoint(1, m_point1->getX(), m_point1->getY());
-  te::gm::Geometry* geomLineSearchBuffer = lineSearchBuffer->buffer(distanceTrack * distanceTrackTol, 4, te::gm::CapButtType);
+  te::gm::Geometry* geomLineSearchBuffer = lineSearchBuffer->buffer(distanceTrack / 2., 4, te::gm::CapButtType);
 
   //check on tree
   te::gm::Envelope ext(*geomLineSearchBuffer->getMBR());
@@ -666,7 +666,7 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackDeadClassifier::createBuffer
     //stop criteria
     double curDistance = m_point0->distance(guestPoint);
 
-    if (curDistance > (m_totalDistance - m_distance + toleranceFactor))
+    if (curDistance > (m_totalDistance + toleranceFactor))
       break;
 
     //filter using a line buffer
@@ -769,7 +769,7 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackDeadClassifier::createBuffer
     ++it;
   }
 
-  return lineBuffer->buffer(distanceTrack * distanceTrackTol, 16, te::gm::CapButtType);
+  return lineBuffer->buffer(distanceTrack / 2., 16, te::gm::CapButtType);
 }
 
 void te::qt::plugins::tv5plugins::TrackDeadClassifier::getTrackInfo(te::gm::Point* point0, te::gm::Point* point1)
