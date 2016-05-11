@@ -277,7 +277,7 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::selectObjects(QMouseEvent
           continue;
 
         pClicked = getPoint(dynamic_cast<te::gm::Geometry*>(g->clone()));
-        m_objId0 = te::da::GenerateOID(dataset.get(), pnames);
+        objId = te::da::GenerateOID(dataset.get(), pnames);
 
         break;
       }
