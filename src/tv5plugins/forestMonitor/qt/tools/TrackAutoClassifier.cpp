@@ -148,9 +148,9 @@ void te::qt::plugins::tv5plugins::TrackAutoClassifier::setLineEditComponents(QLi
   m_thresholdLineEdit = threshold;
 }
 
-void te::qt::plugins::tv5plugins::TrackAutoClassifier::setAdjustTrack(int nSteps)
+void te::qt::plugins::tv5plugins::TrackAutoClassifier::setAdjustTrack(bool adjust, int nSteps)
 {
-  m_adjustTrack = true;
+  m_adjustTrack = adjust;
   m_adjustTrackSteps = nSteps;
 }
 

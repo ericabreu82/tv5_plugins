@@ -90,7 +90,7 @@ namespace te
 
           void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceTrackLineEdit, QLineEdit* distanceToleranceFactorLineEdit, QLineEdit* distanceTrackToleranceFactorLineEdit, QLineEdit* polyAreaMin, QLineEdit* polyAreaMax, QLineEdit* maxDead, QLineEdit* deadTol, QLineEdit* threshold);
 
-          void setAdjustTrack(int nSteps);
+          void setAdjustTrack(bool adjust, int nSteps);
 
           //@}
 
