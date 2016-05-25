@@ -624,7 +624,13 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackDeadClassifier::createBuffer
   track.push_back(new te::gm::Point(*rootPoint));
 
   if (objIdRoot)
+  {
     m_track->add(objIdRoot);
+  }
+  else
+  {
+    calculateGuessPoint(rootPoint, parcelId);
+  }
 
   QApplication::setOverrideCursor(Qt::WaitCursor);
 
