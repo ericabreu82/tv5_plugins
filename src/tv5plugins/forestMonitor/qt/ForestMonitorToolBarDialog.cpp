@@ -25,6 +25,7 @@
 
 // TerraLib
 #include <terralib/qt/af/ApplicationController.h>
+#include <terralib/qt/widgets/canvas/MapDisplay.h>
 
 #include "../core/ForestMonitorToolBar.h"
 #include "tools/Creator.h"
@@ -202,7 +203,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onEraserToolButton
   te::map::AbstractLayerPtr layer = varLayer.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::Eraser* tool = new te::qt::plugins::tv5plugins::Eraser(m_appDisplay->getDisplay(), Qt::ArrowCursor, layer);
-  m_appDisplay->setCurrentTool(tool);
+  m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
 }
@@ -223,7 +224,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onUpdateToolButton
   te::map::AbstractLayerPtr layer = varLayer.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::UpdateClass* tool = new te::qt::plugins::tv5plugins::UpdateClass(m_appDisplay->getDisplay(), Qt::ArrowCursor, layer);
-  m_appDisplay->setCurrentTool(tool);
+  m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
 }
@@ -246,7 +247,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorToolButto
   te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::CREATED_TYPE);
-  m_appDisplay->setCurrentTool(tool);
+  m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
 }
@@ -269,7 +270,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorLiveToolB
   te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::LIVE_TYPE);
-  m_appDisplay->setCurrentTool(tool);
+  m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
 }
@@ -292,7 +293,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorDeadToolB
   te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::DEAD_TYPE);
-  m_appDisplay->setCurrentTool(tool);
+  m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
 }
@@ -323,7 +324,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackAutoClassif
   te::qt::plugins::tv5plugins::TrackAutoClassifier* tool = new te::qt::plugins::tv5plugins::TrackAutoClassifier(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, layerPoly, layerDir);
   tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distTrackLineEdit, m_ui->m_distTolLineEdit, m_ui->m_distTrackTolLineEdit,  m_ui->m_polyAreaMinLineEdit, m_ui->m_polyAreaMaxLineEdit, m_ui->m_maxDeadLineEdit, m_ui->m_deadTolLineEdit, m_ui->m_thresholdLineEdit);
   tool->setAdjustTrack(m_ui->m_adaptTrackCheckBox->isChecked(), m_ui->m_adjustTrackSpinBox->value());
-  m_appDisplay->setCurrentTool(tool);
+  m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
 }
@@ -350,7 +351,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onTrackDeadClassif
 
   te::qt::plugins::tv5plugins::TrackDeadClassifier* tool = new te::qt::plugins::tv5plugins::TrackDeadClassifier(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, layerPoly);
   tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distTrackLineEdit, m_ui->m_distTolLineEdit, m_ui->m_distTrackTolLineEdit, m_ui->m_polyAreaMinLineEdit, m_ui->m_polyAreaMaxLineEdit, m_ui->m_deadTolLineEdit, m_ui->m_thresholdLineEdit);
-  m_appDisplay->setCurrentTool(tool);
+  m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
 }
