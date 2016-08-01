@@ -47,6 +47,8 @@ namespace Ui { class ForestMonitorClassDialogForm; }
 
 namespace te
 {
+  namespace se { class PointSymbolizer; }
+
   namespace qt
   {
     namespace plugins
@@ -82,6 +84,8 @@ namespace te
 
             void onThresholdSliderReleased();
 
+            void onThresholdSliderMoved(int value);
+
             void onGenerateErosionSampleClicked();
 
             void onDilationPushButtonClicked();
@@ -97,6 +101,12 @@ namespace te
             void drawRaster(te::rst::Raster* raster, te::qt::widgets::MapDisplay* mapDisplay, te::se::Style* style = 0);
 
             te::da::DataSourcePtr createDataSource(std::string repository, std::map<std::string, std::string>& dsInfo);
+
+            void createLegend();
+
+            te::se::PointSymbolizer* createPointSymbolizer(std::string fillColor, std::string fillOpacity, 
+                                                           std::string strokeColor, std::string strokeWidth, 
+                                                           std::string markName, std::string markSize);
 
           private:
 
@@ -123,6 +133,9 @@ namespace te
             te::gm::Envelope m_env;
 
             int m_srid;
+
+            double m_thresholdRasterMin;
+            double m_thresholdRasterMax;
         }; 
       }   // end namespace thirdParty
     }     // end namespace plugins

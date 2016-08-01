@@ -74,6 +74,8 @@ namespace te
 
             void onVISLayerCmbActivated(int idx);
 
+            void onExportLayerCmbActivated(int idx);
+
             void onOkPushButtonClicked();
 
             void onTargetFileToolButtonPressed();

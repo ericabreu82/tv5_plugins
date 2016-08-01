@@ -36,6 +36,9 @@
 #include "ForestMonitorToolBarDialog.h"
 #include "ui_ForestMonitorToolBarDialogForm.h"
 
+#include <QMessageBox>
+//Qt
+
 Q_DECLARE_METATYPE(te::map::AbstractLayerPtr);
 
 te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDialog(QWidget* parent, Qt::WindowFlags f)
@@ -59,8 +62,18 @@ te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::ForestMonitorToolBarDia
 
 te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::~ForestMonitorToolBarDialog()
 {
- // if (m_clearTool)
-   // m_appDisplay->setCurrentTool(0);
+  if (m_clearTool)
+    m_appDisplay->getDisplay()->setCurrentTool(0);
+}
+
+void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::reject()
+{
+  QMessageBox::StandardButton resBtn = QMessageBox::Yes;
+
+  resBtn = QMessageBox::question(this, tr("Forest Monitor"), tr("Close Dialog?"), QMessageBox::No | QMessageBox::Yes, QMessageBox::No);
+
+  if (resBtn == QMessageBox::Yes)
+    QDialog::reject();
 }
 
 void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::setLayerList(std::list<te::map::AbstractLayerPtr> list)

@@ -190,6 +190,112 @@ std::auto_ptr<te::rst::Raster> te::qt::plugins::tv5plugins::GenerateNDVIRaster(t
   return rasterOut;
 }
 
+
+std::auto_ptr<te::rst::Raster>  te::qt::plugins::tv5plugins::ExportRasterBand(te::rst::Raster* raster, int band,
+                                                                              double gain, double offset, bool normalize,
+                                                                              std::map<std::string, std::string> rInfo,
+                                                                              std::string type, int srid)
+{
+  double minValue = std::numeric_limits<double>::max();
+  double maxValue = -std::numeric_limits<double>::max();
+
+  te::rst::Raster* exportRaster = 0;
+
+  //check input parameters
+  if (!raster)
+  {
+    throw te::common::Exception("Invalid input rasters.");
+  }
+
+  std::string typeRaster = type;
+
+  if (normalize)
+    typeRaster = "MEM";
+
+  //create raster out
+  std::vector<te::rst::BandProperty*> bandsProperties;
+  te::rst::BandProperty* bandProp = new te::rst::BandProperty(0, raster->getBand(band)->getProperty()->getType());
+  bandProp->m_nblocksx = raster->getBand(band)->getProperty()->m_nblocksx;
+  bandProp->m_nblocksy = raster->getBand(band)->getProperty()->m_nblocksy;
+  bandProp->m_blkh = raster->getBand(band)->getProperty()->m_blkh;
+  bandProp->m_blkw = raster->getBand(band)->getProperty()->m_blkw;
+  bandsProperties.push_back(bandProp);
+
+  te::rst::Grid* grid = new te::rst::Grid(*(raster->getGrid()));
+  grid->setSRID(srid);
+
+  if (normalize)
+  {
+    exportRaster = new te::mem::ExpansibleRaster(10, grid, bandsProperties);
+  }
+  else
+  {
+    exportRaster = te::rst::RasterFactory::make(typeRaster, grid, bandsProperties, rInfo);
+  }
+
+  //start export operation
+  std::size_t nRows = raster->getNumberOfRows();
+  std::size_t nCols = raster->getNumberOfColumns();
+
+  {
+    te::common::TaskProgress task("Exporting Band.");
+    task.setTotalSteps(nRows);
+
+    for (std::size_t t = 0; t < nRows; ++t)
+    {
+      if (task.isActive() == false)
+        throw te::common::Exception("Operation Canceled.");
+
+      for (std::size_t q = 0; q < nCols; ++q)
+      {
+        try
+        {
+          double value = 0.;
+
+          raster->getValue(q, t, value, band);
+
+          value = (gain * value) + offset;
+
+          exportRaster->setValue(q, t, value, 0);
+
+          if (value > maxValue)
+          {
+            maxValue = value;
+          }
+
+          if (value < minValue)
+          {
+            minValue = value;
+          }
+        }
+        catch (...)
+        {
+          continue;
+        }
+      }
+
+      task.pulse();
+    }
+  }
+
+  std::auto_ptr<te::rst::Raster> rasterOut;
+
+  if (normalize)
+  {
+    rasterOut = NormalizeRaster(exportRaster, minValue, maxValue, 0., 255., rInfo, type);
+
+    delete exportRaster;
+  }
+  else
+  {
+    rasterOut.reset(exportRaster);
+  }
+
+  rasterOut->getGrid()->setSRID(srid);
+
+  return rasterOut;
+}
+
 te::rst::Raster* te::qt::plugins::tv5plugins::InvertRaster(te::rst::Raster* rasterNIR, int bandNIR)
 {
   //create raster out

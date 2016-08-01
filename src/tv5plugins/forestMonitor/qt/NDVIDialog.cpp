@@ -52,6 +52,7 @@ te::qt::plugins::tv5plugins::NDVIDialog::NDVIDialog(QWidget* parent, Qt::WindowF
   connect(m_ui->m_targetFileToolButton, SIGNAL(pressed()), this,  SLOT(onTargetFileToolButtonPressed()));
   connect(m_ui->m_nirLayerComboBox, SIGNAL(activated(int)), this, SLOT(onNIRLayerCmbActivated(int)));
   connect(m_ui->m_visLayerComboBox, SIGNAL(activated(int)), this, SLOT(onVISLayerCmbActivated(int)));
+  connect(m_ui->m_exportLayerComboBox, SIGNAL(activated(int)), this, SLOT(onExportLayerCmbActivated(int)));
 
   //validators
   m_ui->m_gainLineEdit->setValidator(new QDoubleValidator(this));
@@ -68,6 +69,7 @@ void te::qt::plugins::tv5plugins::NDVIDialog::setLayerList(std::list<te::map::Ab
   //clear combos
   m_ui->m_nirLayerComboBox->clear();
   m_ui->m_visLayerComboBox->clear();
+  m_ui->m_exportLayerComboBox->clear();
 
   //fill combos
   std::list<te::map::AbstractLayerPtr>::iterator it = list.begin();
@@ -84,6 +86,7 @@ void te::qt::plugins::tv5plugins::NDVIDialog::setLayerList(std::list<te::map::Ab
       {
         m_ui->m_nirLayerComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
         m_ui->m_visLayerComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
+        m_ui->m_exportLayerComboBox->addItem(it->get()->getTitle().c_str(), QVariant::fromValue(l));
       }
     }
 
@@ -95,6 +98,9 @@ void te::qt::plugins::tv5plugins::NDVIDialog::setLayerList(std::list<te::map::Ab
 
   if(m_ui->m_visLayerComboBox->count() != 0)
     onVISLayerCmbActivated(0);
+
+  if (m_ui->m_exportLayerComboBox->count() != 0)
+    onExportLayerCmbActivated(0);
 }
 
 te::map::AbstractLayerPtr te::qt::plugins::tv5plugins::NDVIDialog::getOutputLayer()
@@ -154,6 +160,32 @@ void te::qt::plugins::tv5plugins::NDVIDialog::onVISLayerCmbActivated(int idx)
   }
 }
 
+void te::qt::plugins::tv5plugins::NDVIDialog::onExportLayerCmbActivated(int idx)
+{
+  m_ui->m_exportBandComboBox->clear();
+
+  QVariant varLayer = m_ui->m_exportLayerComboBox->itemData(idx, Qt::UserRole);
+  te::map::AbstractLayerPtr layer = varLayer.value<te::map::AbstractLayerPtr>();
+
+  //get input raster
+  std::auto_ptr<te::da::DataSet> ds = layer->getData();
+
+  if (ds.get())
+  {
+    std::size_t rpos = te::da::GetFirstPropertyPos(ds.get(), te::dt::RASTER_TYPE);
+
+    std::auto_ptr<te::rst::Raster> inputRst = ds->getRaster(rpos);
+
+    if (inputRst.get())
+    {
+      for (unsigned int i = 0; i < inputRst->getNumberOfBands(); ++i)
+      {
+        m_ui->m_exportBandComboBox->addItem(QString::number(i));
+      }
+    }
+  }
+}
+
 void te::qt::plugins::tv5plugins::NDVIDialog::onOkPushButtonClicked()
 {  
   // check input parameters
@@ -179,31 +211,7 @@ void te::qt::plugins::tv5plugins::NDVIDialog::onOkPushButtonClicked()
   }
   offset = m_ui->m_offsetLineEdit->text().toDouble();
 
-  //get NIR layer
-  QVariant nirVarLayer = m_ui->m_nirLayerComboBox->itemData(m_ui->m_nirLayerComboBox->currentIndex(), Qt::UserRole);
-  te::map::AbstractLayerPtr nirLayer = nirVarLayer.value<te::map::AbstractLayerPtr>();
-
-  std::auto_ptr<te::da::DataSet> nirDS = nirLayer->getData();
-  std::size_t rpos = te::da::GetFirstPropertyPos(nirDS.get(), te::dt::RASTER_TYPE);
-  std::auto_ptr<te::rst::Raster> nirRaster = nirDS->getRaster(rpos);
-
-  int nirBand = m_ui->m_nirBandComboBox->currentText().toInt();
-
-  //get vis layer
-  QVariant visVarLayer = m_ui->m_visLayerComboBox->itemData(m_ui->m_visLayerComboBox->currentIndex(), Qt::UserRole);
-  te::map::AbstractLayerPtr visLayer = visVarLayer.value<te::map::AbstractLayerPtr>();
-
-  std::auto_ptr<te::da::DataSet> visDS = visLayer->getData();
-  rpos = te::da::GetFirstPropertyPos(visDS.get(), te::dt::RASTER_TYPE);
-  std::auto_ptr<te::rst::Raster> visRaster = visDS->getRaster(rpos);
-
-  int visBand = m_ui->m_visBandComboBox->currentText().toInt();
-
-  bool normalize = m_ui->m_normalizeCheckBox->isChecked();
-
-  bool rgbVIS = m_ui->m_rgbComposeCheckBox->isChecked();
-
-  //rinfo information
+  //output
   std::string type = "GDAL";
   std::map<std::string, std::string> rInfo;
   rInfo["URI"] = m_ui->m_repositoryLineEdit->text().toStdString();
@@ -214,29 +222,95 @@ void te::qt::plugins::tv5plugins::NDVIDialog::onOkPushButtonClicked()
 
   QApplication::setOverrideCursor(Qt::WaitCursor);
 
-  try
+  if (m_ui->m_exportGroupBox->isChecked())
   {
-    std::auto_ptr<te::rst::Raster> rOut = te::qt::plugins::tv5plugins::GenerateNDVIRaster(nirRaster.get(), nirBand, visRaster.get(), visBand, gain, offset, normalize, rInfo, type, visLayer->getSRID(), m_ui->m_invertCheckBox->isChecked(), rgbVIS);
+    //get export raster and band
+    QVariant exportVarLayer = m_ui->m_exportLayerComboBox->itemData(m_ui->m_exportLayerComboBox->currentIndex(), Qt::UserRole);
+    te::map::AbstractLayerPtr exportLayer = exportVarLayer.value<te::map::AbstractLayerPtr>();
+
+    std::auto_ptr<te::da::DataSet> exportDS = exportLayer->getData();
+    std::size_t rpos = te::da::GetFirstPropertyPos(exportDS.get(), te::dt::RASTER_TYPE);
+    std::auto_ptr<te::rst::Raster> exportRaster = exportDS->getRaster(rpos);
+
+    int exportBand = m_ui->m_exportBandComboBox->currentText().toInt();
+
+    bool normalize = m_ui->m_normalizeCheckBox->isChecked();
+
+    try
+    {
+      std::auto_ptr<te::rst::Raster> rOut = te::qt::plugins::tv5plugins::ExportRasterBand(exportRaster.get(), exportBand, gain, offset, normalize, rInfo, type, exportLayer->getSRID());
+    }
+    catch (const std::exception& e)
+    {
+      QMessageBox::warning(this, tr("Warning"), e.what());
+
+      te::common::ProgressManager::getInstance().removeViewer(id);
+
+      QApplication::restoreOverrideCursor();
+
+      return;
+    }
+    catch (...)
+    {
+      QMessageBox::warning(this, tr("Warning"), tr("Internal Error."));
+
+      te::common::ProgressManager::getInstance().removeViewer(id);
+
+      QApplication::restoreOverrideCursor();
+
+      return;
+    }
   }
-  catch(const std::exception& e)
+  else
   {
-    QMessageBox::warning(this, tr("Warning"), e.what());
+    //get NIR layer
+    QVariant nirVarLayer = m_ui->m_nirLayerComboBox->itemData(m_ui->m_nirLayerComboBox->currentIndex(), Qt::UserRole);
+    te::map::AbstractLayerPtr nirLayer = nirVarLayer.value<te::map::AbstractLayerPtr>();
 
-    te::common::ProgressManager::getInstance().removeViewer(id);
+    std::auto_ptr<te::da::DataSet> nirDS = nirLayer->getData();
+    std::size_t rpos = te::da::GetFirstPropertyPos(nirDS.get(), te::dt::RASTER_TYPE);
+    std::auto_ptr<te::rst::Raster> nirRaster = nirDS->getRaster(rpos);
 
-    QApplication::restoreOverrideCursor();
+    int nirBand = m_ui->m_nirBandComboBox->currentText().toInt();
 
-    return;
-  }
-  catch(...)
-  {
-    QMessageBox::warning(this, tr("Warning"), tr("Internal Error."));
+    //get vis layer
+    QVariant visVarLayer = m_ui->m_visLayerComboBox->itemData(m_ui->m_visLayerComboBox->currentIndex(), Qt::UserRole);
+    te::map::AbstractLayerPtr visLayer = visVarLayer.value<te::map::AbstractLayerPtr>();
 
-    te::common::ProgressManager::getInstance().removeViewer(id);
+    std::auto_ptr<te::da::DataSet> visDS = visLayer->getData();
+    rpos = te::da::GetFirstPropertyPos(visDS.get(), te::dt::RASTER_TYPE);
+    std::auto_ptr<te::rst::Raster> visRaster = visDS->getRaster(rpos);
 
-    QApplication::restoreOverrideCursor();
+    int visBand = m_ui->m_visBandComboBox->currentText().toInt();
 
-    return;
+    bool normalize = m_ui->m_normalizeCheckBox->isChecked();
+
+    bool rgbVIS = m_ui->m_rgbComposeCheckBox->isChecked();
+
+    try
+    {
+      std::auto_ptr<te::rst::Raster> rOut = te::qt::plugins::tv5plugins::GenerateNDVIRaster(nirRaster.get(), nirBand, visRaster.get(), visBand, gain, offset, normalize, rInfo, type, visLayer->getSRID(), m_ui->m_invertCheckBox->isChecked(), rgbVIS);
+    }
+    catch (const std::exception& e)
+    {
+      QMessageBox::warning(this, tr("Warning"), e.what());
+
+      te::common::ProgressManager::getInstance().removeViewer(id);
+
+      QApplication::restoreOverrideCursor();
+
+      return;
+    }
+    catch (...)
+    {
+      QMessageBox::warning(this, tr("Warning"), tr("Internal Error."));
+
+      te::common::ProgressManager::getInstance().removeViewer(id);
+
+      QApplication::restoreOverrideCursor();
+
+      return;
+    }
   }
 
   //set output layer

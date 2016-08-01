@@ -202,6 +202,8 @@ void te::qt::plugins::tv5plugins::UpdateClass::selectObjects(QMouseEvent* e)
       }
 
       m_roots->symDifference(oids);
+
+      break;
     }
   }
   catch (std::exception& e)

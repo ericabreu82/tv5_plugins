@@ -211,6 +211,7 @@ void te::qt::plugins::tv5plugins::Eraser::selectObjects(QMouseEvent* e)
 
       m_dataSet->add(item);
 
+      break;
     }
   }
   catch (std::exception& e)

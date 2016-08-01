@@ -62,6 +62,10 @@ namespace te
 
             ~ForestMonitorToolBarDialog();
 
+          public Q_SLOTS:
+
+            virtual void reject();
+
           public:
 
             void setLayerList(std::list<te::map::AbstractLayerPtr> list);

@@ -34,6 +34,8 @@
 #include <terralib/geometry/MultiPolygon.h>
 #include <terralib/geometry/Utils.h>
 #include <terralib/maptools/DataSetLayer.h>
+#include <terralib/maptools/Grouping.h>
+#include <terralib/maptools/GroupingItem.h>
 #include <terralib/maptools/Utils.h>
 #include <terralib/qt/widgets/canvas/Canvas.h>
 #include <terralib/qt/widgets/layer/utils/DataSet2Layer.h>
@@ -47,6 +49,7 @@
 #include <terralib/se/CoverageStyle.h>
 #include <terralib/se/ParameterValue.h>
 #include <terralib/se/RasterSymbolizer.h>
+#include <terralib/se/PointSymbolizer.h>
 #include <terralib/se/Rule.h>
 #include <terralib/se/Utils.h>
 #include "../core/ForestMonitorClassification.h"
@@ -67,7 +70,8 @@ Q_DECLARE_METATYPE(te::map::AbstractLayerPtr);
 
 te::qt::plugins::tv5plugins::ForestMonitorClassDialog::ForestMonitorClassDialog(QWidget* parent, Qt::WindowFlags f)
   : QDialog(parent, f),
-    m_ui(new Ui::ForestMonitorClassDialogForm)
+    m_ui(new Ui::ForestMonitorClassDialogForm),
+	m_progressDlg(0)
 {
   // add controls
   m_ui->setupUi(this);
@@ -83,12 +87,9 @@ te::qt::plugins::tv5plugins::ForestMonitorClassDialog::ForestMonitorClassDialog(
   displayLayout4->addWidget(m_erosionDisplay.get());
   displayLayout4->setContentsMargins(0,0,0,0);
 
-  //progress
-  m_progressDlg  = new te::qt::widgets::ProgressViewerDialog(this);
-  m_progressId = te::common::ProgressManager::getInstance().addViewer(m_progressDlg);
-
   // connectors
   connect(m_ui->m_thresholdHorizontalSlider, SIGNAL(sliderReleased()), this, SLOT(onThresholdSliderReleased()));
+  connect(m_ui->m_thresholdHorizontalSlider, SIGNAL(sliderMoved(int)), this, SLOT(onThresholdSliderMoved(int)));
   connect(m_ui->m_generateNDVISamplePushButton, SIGNAL(clicked()), this, SLOT(onGenerateNDVISampleClicked()));
   connect(m_ui->m_generateThresholdPushButton, SIGNAL(clicked()), this, SLOT(onGenerateErosionSampleClicked()));
   connect(m_ui->m_dilationPushButton, SIGNAL(clicked()), this, SLOT(onDilationPushButtonClicked()));
@@ -101,6 +102,9 @@ te::qt::plugins::tv5plugins::ForestMonitorClassDialog::ForestMonitorClassDialog(
   m_ui->m_erosionLineEdit->setValidator(new QDoubleValidator(this));
 
   this->setSizeGripEnabled(true);
+
+  m_thresholdRasterMin = 0.;
+  m_thresholdRasterMax = 0.;
 }
 
 te::qt::plugins::tv5plugins::ForestMonitorClassDialog::~ForestMonitorClassDialog()
@@ -156,6 +160,13 @@ te::map::AbstractLayerPtr te::qt::plugins::tv5plugins::ForestMonitorClassDialog:
 
 void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onGenerateNDVISampleClicked()
 {
+  //progress
+  if (!m_progressDlg)
+  {
+    m_progressDlg = new te::qt::widgets::ProgressViewerDialog(this);
+    m_progressId = te::common::ProgressManager::getInstance().addViewer(m_progressDlg);
+  }
+
   //get input raster
   QVariant varLayer = m_ui->m_ndviLayerComboBox->itemData(m_ui->m_ndviLayerComboBox->currentIndex(), Qt::UserRole);
 
@@ -187,6 +198,14 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onGenerateNDVISample
   drawRaster(m_thresholdRaster.get(), m_thresholdDisplay.get());
 
   m_ui->m_thresholdHorizontalSlider->setEnabled(true);
+
+  //set min max values
+  const te::rst::RasterSummary* rsMin = te::rst::RasterSummaryManager::getInstance().get(m_thresholdRaster.get(), te::rst::SUMMARY_MIN, true);
+  const te::rst::RasterSummary* rsMax = te::rst::RasterSummaryManager::getInstance().get(m_thresholdRaster.get(), te::rst::SUMMARY_MAX, true);
+  const std::complex<double>* cmin = rsMin->at(0).m_minVal;
+  const std::complex<double>* cmax = rsMax->at(0).m_maxVal;
+  m_thresholdRasterMin = cmin->real();
+  m_thresholdRasterMax = cmax->real();
 }
 
 void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onThresholdSliderReleased()
@@ -194,17 +213,9 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onThresholdSliderRel
   if (!m_thresholdRaster.get())
     return;
 
-  //get slider value
-  const te::rst::RasterSummary* rsMin = te::rst::RasterSummaryManager::getInstance().get(m_thresholdRaster.get(), te::rst::SUMMARY_MIN, true);
-  const te::rst::RasterSummary* rsMax = te::rst::RasterSummaryManager::getInstance().get(m_thresholdRaster.get(), te::rst::SUMMARY_MAX, true);
-  const std::complex<double>* cmin = rsMin->at(0).m_minVal;
-  const std::complex<double>* cmax = rsMax->at(0).m_maxVal;
-  double min = cmin->real();
-  double max = cmax->real();
-
   int curSliderValue = m_ui->m_thresholdHorizontalSlider->value();
 
-  double value = (((double)curSliderValue) / (1000.)) * (max - min) + min;
+  double value = (((double)curSliderValue) / (1000.)) * (m_thresholdRasterMax - m_thresholdRasterMin) + m_thresholdRasterMin;
 
   //get original raster
   QVariant varLayer = m_ui->m_originalLayerComboBox->itemData(m_ui->m_originalLayerComboBox->currentIndex(), Qt::UserRole);
@@ -232,6 +243,13 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onThresholdSliderRel
     bands[ b ]->m_nblocksy = m_thresholdRaster->getNumberOfRows();
     bands[ b ]->m_blkw = m_thresholdRaster->getNumberOfColumns();
     bands[ b ]->m_blkh = 1;
+  }
+
+  //progress
+  if (!m_progressDlg)
+  {
+    m_progressDlg = new te::qt::widgets::ProgressViewerDialog(this);
+    m_progressId = te::common::ProgressManager::getInstance().addViewer(m_progressDlg);
   }
 
   te::rst::Raster* raster = te::rst::RasterFactory::make(grid, bands, rInfo);
@@ -280,19 +298,21 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onThresholdSliderRel
   m_ui->m_thresholdLineEdit->setText(QString::number(value));
 }
 
+void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onThresholdSliderMoved(int value)
+{
+  if (!m_thresholdRaster.get())
+    return;
+
+  int v = (((double)value) / (1000.)) * (m_thresholdRasterMax - m_thresholdRasterMin) + m_thresholdRasterMin;
+
+  m_ui->m_thresholdValueLabel->setText(QString::number(v));
+}
+
 void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onGenerateErosionSampleClicked()
 {
-  //get slider value
-  const te::rst::RasterSummary* rsMin = te::rst::RasterSummaryManager::getInstance().get(m_thresholdRaster.get(), te::rst::SUMMARY_MIN, true);
-  const te::rst::RasterSummary* rsMax = te::rst::RasterSummaryManager::getInstance().get(m_thresholdRaster.get(), te::rst::SUMMARY_MAX, true);
-  const std::complex<double>* cmin = rsMin->at(0).m_minVal;
-  const std::complex<double>* cmax = rsMax->at(0).m_maxVal;
-  double min = cmin->real();
-  double max = cmax->real();
-
   int curSliderValue = m_ui->m_thresholdHorizontalSlider->value();
 
-  double value = (((double)curSliderValue) / (1000.)) * (max - min) + min;
+  double value = (((double)curSliderValue) / (1000.)) * (m_thresholdRasterMax - m_thresholdRasterMin) + m_thresholdRasterMin;
 
   //create erosion raster
   std::map<std::string, std::string> rInfo;
@@ -312,6 +332,13 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onGenerateErosionSam
   }
 
   te::rst::Raster* raster = te::rst::RasterFactory::make(grid, bands, rInfo);
+
+  //progress
+  if (!m_progressDlg)
+  {
+    m_progressDlg = new te::qt::widgets::ProgressViewerDialog(this);
+    m_progressId = te::common::ProgressManager::getInstance().addViewer(m_progressDlg);
+  }
 
   te::common::TaskProgress task("Generating Filter Raster");
   task.setTotalSteps(m_thresholdRaster->getNumberOfRows());
@@ -563,6 +590,13 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
 
   te::da::DataSourcePtr polyOutputDataSource = createDataSource(polyDataSourcePath, polyDsInfo);
 
+  //progress
+  if (!m_progressDlg)
+  {
+    m_progressDlg = new te::qt::widgets::ProgressViewerDialog(this);
+    m_progressId = te::common::ProgressManager::getInstance().addViewer(m_progressDlg);
+  }
+
   QApplication::setOverrideCursor(Qt::WaitCursor);
 
   try
@@ -722,6 +756,9 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     te::da::DataSetTypePtr dt(outDataSource->getDataSetType(dataSetName).release());
 
     m_outputLayer = converter(dt);
+
+    //create legend
+    createLegend();
   }
   catch (const std::exception& e)
   {
@@ -802,4 +839,111 @@ te::da::DataSourcePtr te::qt::plugins::tv5plugins::ForestMonitorClassDialog::cre
   te::da::DataSourceInfoManager::getInstance().add(dsInfoPtr);
 
   return te::da::DataSourceManager::getInstance().get(id_ds, "OGR", dsInfoPtr->getConnInfo());
+}
+
+void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::createLegend()
+{
+  std::string vecAttr = "type";
+  int attrType = te::dt::STRING_TYPE;
+  int prec = 0;
+
+  //create legend
+  std::vector<te::map::GroupingItem*> legend;
+
+  {
+    std::vector<te::se::Symbolizer*> symbVec;
+    te::se::PointSymbolizer* symb = createPointSymbolizer("#000000", "0.0", "#FFFFFF", "1", "circle", "12");
+    symbVec.push_back(symb);
+
+    te::map::GroupingItem* legendItem = new te::map::GroupingItem;
+    legendItem->setValue("UNKNOWN");
+    legendItem->setCount(0);
+    legendItem->setSymbolizers(symbVec);
+    legend.push_back(legendItem);
+  }
+
+  {
+    std::vector<te::se::Symbolizer*> symbVec;
+    te::se::PointSymbolizer* symb = createPointSymbolizer("#000000", "0.0", "#00FF00", "2", "circle", "16");
+    symbVec.push_back(symb);
+
+    te::map::GroupingItem* legendItem = new te::map::GroupingItem;
+    legendItem->setValue("LIVE");
+    legendItem->setCount(0);
+    legendItem->setSymbolizers(symbVec);
+    legend.push_back(legendItem);
+  }
+
+  {
+    std::vector<te::se::Symbolizer*> symbVec;
+    te::se::PointSymbolizer* symb = createPointSymbolizer("#000000", "0.0", "#FFFFFF", "2", "square", "16");
+    symbVec.push_back(symb);
+
+    te::map::GroupingItem* legendItem = new te::map::GroupingItem;
+    legendItem->setValue("DEAD");
+    legendItem->setCount(0);
+    legendItem->setSymbolizers(symbVec);
+    legend.push_back(legendItem);
+  }
+
+  {
+    std::vector<te::se::Symbolizer*> symbVec;
+    te::se::PointSymbolizer* symb = createPointSymbolizer("#000000", "0.0", "#FF0000", "1", "circle", "12");
+    symbVec.push_back(symb);
+
+    te::map::GroupingItem* legendItem = new te::map::GroupingItem;
+    legendItem->setValue("INTRUDER");
+    legendItem->setCount(0);
+    legendItem->setSymbolizers(symbVec);
+    legend.push_back(legendItem);
+  }
+
+  {
+    std::vector<te::se::Symbolizer*> symbVec;
+    te::se::PointSymbolizer* symb = createPointSymbolizer("#000000", "0.0", "#0000FF", "1", "circle", "12");
+    symbVec.push_back(symb);
+
+    te::map::GroupingItem* legendItem = new te::map::GroupingItem;
+    legendItem->setValue("CREATED");
+    legendItem->setCount(0);
+    legendItem->setSymbolizers(symbVec);
+    legend.push_back(legendItem);
+  }
+
+  {
+    std::vector<te::se::Symbolizer*> symbVec;
+    te::se::PointSymbolizer* symb = createPointSymbolizer("#000000", "0.0", "#000000", "0", "square", "12");
+    symbVec.push_back(symb);
+
+    te::map::GroupingItem* legendItem = new te::map::GroupingItem;
+    legendItem->setValue("REMOVED");
+    legendItem->setCount(0);
+    legendItem->setSymbolizers(symbVec);
+    legend.push_back(legendItem);
+  }
+   
+  //create grouping
+  te::map::Grouping* group = new te::map::Grouping(vecAttr, te::map::UNIQUE_VALUE);
+  group->setPropertyType(attrType);
+  group->setPrecision(prec);
+  group->setStdDeviation(0.);
+  group->setGroupingItems(legend);
+
+  //set grouping
+  m_outputLayer->setGrouping(group);
+}
+
+te::se::PointSymbolizer* te::qt::plugins::tv5plugins::ForestMonitorClassDialog::createPointSymbolizer(std::string fillColor, std::string fillOpacity,
+                                                                                                      std::string strokeColor, std::string strokeWidth,
+                                                                                                      std::string markName, std::string markSize)
+{
+  te::se::Fill* markFill = te::se::CreateFill(fillColor, fillOpacity);
+  te::se::Stroke* markStroke = te::se::CreateStroke(strokeColor, strokeWidth);
+  te::se::Mark* mark = CreateMark(markName, markStroke, markFill);
+  te::se::Graphic* graphic = CreateGraphic(mark, markSize, "", "");
+
+  te::se::PointSymbolizer* symbolizer = new te::se::PointSymbolizer;
+  symbolizer->setGraphic(graphic);
+
+  return symbolizer;
 }

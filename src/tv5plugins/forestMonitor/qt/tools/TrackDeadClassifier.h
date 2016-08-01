@@ -131,7 +131,7 @@ namespace te
 
           void getStartIdValue();
 
-          bool isDead(te::da::ObjectId* objId, double& area);
+          bool getClassInfo(te::da::ObjectId* objId, double& area, std::string& classType);
 
           te::gm::Point* calculateGuessPoint(te::gm::Point* p, int parcelId);
 

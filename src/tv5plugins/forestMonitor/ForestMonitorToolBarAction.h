@@ -27,7 +27,6 @@
 #define __TE_QT_PLUGINS_THIRDPARTY_INTERNAL_FORESTMONITORTOOLBARACTION_H
 
 // TerraLib
-#include "qt/ForestMonitorToolBarDialog.h"
 #include "../AbstractAction.h"
 #include "../Config.h"
 
@@ -58,10 +57,6 @@ namespace te
           protected slots:
 
             virtual void onActionActivated(bool checked);
-
-          protected:
-          
-            te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog*  m_dlg;
         };
 
       } // end namespace thirdParty

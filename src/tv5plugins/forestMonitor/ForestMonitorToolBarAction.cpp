@@ -29,6 +29,7 @@
 #include <terralib/qt/af/ApplicationController.h>
 #include <terralib/qt/af/BaseApplication.h>
 #include <terralib/qt/widgets/canvas/MapDisplay.h>
+#include "qt/ForestMonitorToolBarDialog.h"
 #include "ForestMonitorToolBarAction.h"
 
 // Qt
@@ -40,13 +41,11 @@
 te::qt::plugins::tv5plugins::ForestMonitorToolBarAction::ForestMonitorToolBarAction(QMenu* menu) :te::qt::plugins::tv5plugins::AbstractAction(menu)
 {
   createAction(tr("Forest Monitor Tool Bar...").toStdString(), "");
-
-  m_dlg = 0;
 }
 
 te::qt::plugins::tv5plugins::ForestMonitorToolBarAction::~ForestMonitorToolBarAction()
 {
-  delete m_dlg;
+
 }
 
 void te::qt::plugins::tv5plugins::ForestMonitorToolBarAction::onActionActivated(bool checked)
@@ -66,14 +65,13 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarAction::onActionActivated(
   emit triggered(&e);
 
   //show interface
-  if (m_dlg)
-    delete m_dlg;
+  te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog* dlg = new te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog(te::qt::af::AppCtrlSingleton::getInstance().getMainWindow(), Qt::Tool);
 
-  m_dlg = new te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog(te::qt::af::AppCtrlSingleton::getInstance().getMainWindow(), Qt::Tool);
+  dlg->setAttribute(Qt::WA_DeleteOnClose);
 
-  m_dlg->setLayerList(layersList);
+  dlg->setLayerList(layersList);
 
-  m_dlg->setMapDisplay(e.m_display);
+  dlg->setMapDisplay(e.m_display);
 
-  m_dlg->show();
+  dlg->show();
 }

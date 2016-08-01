@@ -33,6 +33,7 @@
 
 // Qt
 #include <QtCore/QObject>
+#include <QMessageBox>
 
 // STL
 #include <memory>
@@ -61,6 +62,12 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassAction::onActionActivated(bo
   {
     env = ba->getMapDisplay()->getExtent();
     srid = ba->getMapDisplay()->getSRID();
+  }
+
+  if (!env.isValid())
+  {
+    QMessageBox::warning(te::qt::af::AppCtrlSingleton::getInstance().getMainWindow(), tr("Forest Monitor"), tr("Invalid box."));
+    return;
   }
 
   //show interface

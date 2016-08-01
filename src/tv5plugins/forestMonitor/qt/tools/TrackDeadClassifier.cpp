@@ -765,17 +765,31 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackDeadClassifier::createBuffer
   //create buffer
   lineBuffer = new te::gm::LineString(track.size(), te::gm::LineStringType, srid);
 
+  std::auto_ptr<te::gm::LineString> lineBufferCopy(new te::gm::LineString(track.size(), te::gm::LineStringType, srid));
+
   int count = 0;
+
   std::list<te::gm::Point*>::iterator it = track.begin();
+
   while (it != track.end())
   {
     lineBuffer->setPoint(count, (*it)->getX(), (*it)->getY());
+    lineBufferCopy->setPoint(count, (*it)->getX(), (*it)->getY());
 
     ++count;
     ++it;
   }
 
-  return lineBuffer->buffer(distanceTrack / 2., 16, te::gm::CapButtType);
+  //fix line to create buffer
+  std::size_t nPoints = lineBufferCopy->getNPoints();
+
+  te::gm::Point firstPoint((lineBufferCopy->getPointN(0)->getX() + lineBufferCopy->getPointN(1)->getX() / 2.), (lineBufferCopy->getPointN(0)->getY() + lineBufferCopy->getPointN(1)->getY() / 2.), srid);
+  te::gm::Point endPoint((lineBufferCopy->getPointN(nPoints - 2)->getX() + lineBufferCopy->getPointN(nPoints - 1)->getX() / 2.), (lineBufferCopy->getPointN(nPoints - 2)->getY() + lineBufferCopy->getPointN(nPoints - 1)->getY() / 2.), srid);
+
+  lineBufferCopy->setPoint(0, firstPoint.getX(), firstPoint.getY());
+  lineBufferCopy->setPoint(nPoints - 1, endPoint.getX(), endPoint.getY());
+
+  return lineBufferCopy->buffer(distanceTrack / 2., 16, te::gm::CapButtType);
 }
 
 void te::qt::plugins::tv5plugins::TrackDeadClassifier::getTrackInfo(te::gm::Point* point0, te::gm::Point* point1)
@@ -869,7 +883,7 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::getClassDataSets(te::da::
     reprojectedEnvelope.transform(m_display->getSRID(), m_coordLayer->getSRID());
 
   if (!reprojectedEnvelope.intersects(m_coordLayer->getExtent()))
-    throw;
+    throw std::exception("Envelope not intersects with Coord Layer.");
 
   // Gets the layer schema
   std::auto_ptr<const te::map::LayerSchema> schema(m_coordLayer->getSchema());
@@ -1073,7 +1087,7 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::getStartIdValue()
   ++m_starterId;
 }
 
-bool te::qt::plugins::tv5plugins::TrackDeadClassifier::isDead(te::da::ObjectId* objId, double& area)
+bool te::qt::plugins::tv5plugins::TrackDeadClassifier::getClassInfo(te::da::ObjectId* objId, double& area, std::string& classType)
 {
   if (!m_coordLayer.get())
     throw;
@@ -1092,16 +1106,11 @@ bool te::qt::plugins::tv5plugins::TrackDeadClassifier::isDead(te::da::ObjectId* 
   {
     ds->moveFirst();
 
-    std::string classValue = ds->getString("type");
+    classType = ds->getString("type");
 
-    if (classValue == "DEAD" || classValue == "REMOVED")
-      return true;
+    area = ds->getDouble("area");
 
-    if (classValue == "UNKNOWN")
-    {
-      //get area attribute and check threshold
-      area = ds->getDouble("area");
-    }
+    return true;
   }
 
   return false;
@@ -1226,10 +1235,15 @@ te::gm::Point* te::qt::plugins::tv5plugins::TrackDeadClassifier::getCandidatePoi
     std::map<int, te::da::ObjectId*>::iterator itObjId = m_centroidObjIdMap.find(resultsTree[t]);
 
     double area = 0.;
+    std::string classType = "";
 
-    if (!isDead(itObjId->second, area))
+    if (getClassInfo(itObjId->second, area, classType))
     {
-      if ((area > polyAreaMin && area < polyAreaMax) || area == 0.)
+      if (classType == "DEAD" || classType == "REMOVED")
+      {
+        continue;
+      }
+      else if ((area > polyAreaMin && area < polyAreaMax) || (area == 0. && classType == "CREATED"))
       {
         te::gm::Point* pCandidate = getPoint(it->second);
 
@@ -1381,6 +1395,12 @@ void te::qt::plugins::tv5plugins::TrackDeadClassifier::processDataSet()
     QApplication::restoreOverrideCursor();
 
     QMessageBox::critical(m_display, tr("Error"), QString(tr("Error auto classifying track. Details:") + " %1.").arg(e.what()));
+  }
+  catch (...)
+  {
+    QApplication::restoreOverrideCursor();
+
+    QMessageBox::critical(m_display, tr("Error"), QString(tr("Error auto classifying track.")));
   }
 
   m_classify = true;

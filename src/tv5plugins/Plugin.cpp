@@ -25,7 +25,7 @@
 
 // TerraLib
 #include <terralib/core/translator/Translator.h>
-#include <terralib/common/Logger.h>
+#include <terralib/core/logger/Logger.h>
 #include <terralib/qt/af/ApplicationController.h>
 
 #include "Plugin.h"

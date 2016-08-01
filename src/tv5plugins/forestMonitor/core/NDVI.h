@@ -50,6 +50,11 @@ namespace te
                                                           std::string type, int srid,
                                                           bool invert, bool rgbVIS);
 
+        std::auto_ptr<te::rst::Raster> ExportRasterBand(te::rst::Raster* raster, int band,
+                                                        double gain, double offset, bool normalize,
+                                                        std::map<std::string, std::string> rInfo,
+                                                        std::string type, int srid);
+
         te::rst::Raster* InvertRaster(te::rst::Raster* rasterNIR, int bandNIR);
 
         std::auto_ptr<te::rst::Raster> NormalizeRaster(te::rst::Raster* inraster, double min, double max, double nmin, double nmax, 
