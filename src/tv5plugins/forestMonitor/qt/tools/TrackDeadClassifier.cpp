@@ -70,6 +70,10 @@ or (at your option) any later version.
 
 double TePerpendicularDistance(const te::gm::Point& first, const te::gm::Point& last, te::gm::Point& pin, te::gm::Point*& pinter);
 
+void GetMiddlePoint(const te::gm::Coord2D& first, const te::gm::Coord2D& last, te::gm::Coord2D& middle);
+
+double Distance(const te::gm::Coord2D& c1, const te::gm::Coord2D& c2);
+
 te::qt::plugins::tv5plugins::TrackDeadClassifier::TrackDeadClassifier(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::map::AbstractLayerPtr rasterLayer, QObject* parent)
   : AbstractTool(display, parent),
   m_coordLayer(coordLayer),
@@ -783,11 +787,18 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackDeadClassifier::createBuffer
   //fix line to create buffer
   std::size_t nPoints = lineBufferCopy->getNPoints();
 
-  te::gm::Point firstPoint((lineBufferCopy->getPointN(0)->getX() + lineBufferCopy->getPointN(1)->getX() / 2.), (lineBufferCopy->getPointN(0)->getY() + lineBufferCopy->getPointN(1)->getY() / 2.), srid);
-  te::gm::Point endPoint((lineBufferCopy->getPointN(nPoints - 2)->getX() + lineBufferCopy->getPointN(nPoints - 1)->getX() / 2.), (lineBufferCopy->getPointN(nPoints - 2)->getY() + lineBufferCopy->getPointN(nPoints - 1)->getY() / 2.), srid);
+  te::gm::Coord2D start0(lineBufferCopy->getPointN(0)->getX(), lineBufferCopy->getPointN(0)->getY());
+  te::gm::Coord2D start1(lineBufferCopy->getPointN(1)->getX(), lineBufferCopy->getPointN(1)->getY());
+  te::gm::Coord2D startMiddle;
+  GetMiddlePoint(start0, start1, startMiddle);
 
-  lineBufferCopy->setPoint(0, firstPoint.getX(), firstPoint.getY());
-  lineBufferCopy->setPoint(nPoints - 1, endPoint.getX(), endPoint.getY());
+  te::gm::Coord2D endNPointsLess1(lineBufferCopy->getPointN(nPoints - 1)->getX(), lineBufferCopy->getPointN(nPoints - 1)->getY());
+  te::gm::Coord2D endNPointsLess2(lineBufferCopy->getPointN(nPoints - 2)->getX(), lineBufferCopy->getPointN(nPoints - 2)->getY());
+  te::gm::Coord2D endMiddle;
+  GetMiddlePoint(endNPointsLess1, endNPointsLess2, endMiddle);
+
+  lineBufferCopy->setPoint(0, startMiddle.getX(), startMiddle.getY());
+  lineBufferCopy->setPoint(nPoints - 1, endMiddle.getX(), endMiddle.getY());
 
   return lineBufferCopy->buffer(distanceTrack / 2., 16, te::gm::CapButtType);
 }
@@ -1577,4 +1588,68 @@ double TePerpendicularDistance(const te::gm::Point& first, const te::gm::Point& 
   pinter = new te::gm::Point(xmin, ymin, pin.getSRID());
 
   return (sqrt(d12));
+}
+
+
+
+void GetMiddlePoint(const te::gm::Coord2D& first, const te::gm::Coord2D& last, te::gm::Coord2D& middle)
+{
+  double	lenght, parts, curlenght, incx, incy, deltax, deltay, dx, dy;
+  short	i, nparts;
+
+  lenght = Distance(first, last);
+  if (lenght == 0.)
+  {
+    middle = first;
+    return;
+  }
+
+  nparts = 2;
+  parts = lenght / 2.;
+
+  // verify segment orientation
+  if (first.getX() < last.getX())
+    incx = 1.;
+  else
+    incx = -1.;
+
+  if (first.getY() < last.getY())
+    incy = 1.;
+  else
+    incy = -1.;
+
+  curlenght = 0.;
+  deltax = fabs(first.getX() - last.getX());
+  deltay = fabs(first.getY() - last.getY());
+  for (i = 0; i<(nparts - 1); i++)
+  {
+    curlenght = curlenght + parts;
+    // vertical segment
+    if (first.getX() == last.getX())
+    {
+      middle = te::gm::Coord2D(first.getX(), first.getY() + (curlenght*incy));
+      continue;
+    }
+
+    // horizontal segment
+    if (first.getY() == last.getY())
+    {
+      middle = te::gm::Coord2D(first.getX() + (curlenght*incx), first.getY());
+      continue;
+    }
+
+    // inclined segment
+
+    // calculating X coordinate
+    dx = curlenght*deltax / lenght;
+
+    // calculating Y coordinate
+    dy = curlenght*deltay / lenght;
+    middle = te::gm::Coord2D(first.getX() + (dx*incx), first.getY() + (dy*incy));
+  }
+}
+
+double Distance(const te::gm::Coord2D& c1, const te::gm::Coord2D& c2)
+{
+  return sqrt(((c2.getX() - c1.getX()) * (c2.getX() - c1.getX())) + ((c2.getY() - c1.getY()) * (c2.getY() - c1.getY())));
 }

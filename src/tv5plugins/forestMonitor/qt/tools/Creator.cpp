@@ -52,6 +52,8 @@
 #include <cassert>
 #include <memory>
 
+#define DISTANCE 2.0
+
 te::qt::plugins::tv5plugins::Creator::Creator(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::qt::plugins::tv5plugins::CreatorType type , QObject* parent)
   : AbstractTool(display, parent),
   m_coordLayer(coordLayer),
@@ -59,6 +61,8 @@ te::qt::plugins::tv5plugins::Creator::Creator(te::qt::widgets::MapDisplay* displ
   m_starterId(0),
   m_panStarted(false)
 {
+  m_distLineEdit = 0;
+
   getStartIdValue();
 
   setCursor(cursor);
@@ -72,6 +76,11 @@ te::qt::plugins::tv5plugins::Creator::~Creator()
 {
   QPixmap* draft = m_display->getDraftPixmap();
   draft->fill(Qt::transparent);
+}
+
+void te::qt::plugins::tv5plugins::Creator::setLineEditComponents(QLineEdit* distLineEdit)
+{
+  m_distLineEdit = distLineEdit;
 }
 
 bool te::qt::plugins::tv5plugins::Creator::eventFilter(QObject* watched, QEvent* e)
@@ -245,6 +254,9 @@ void te::qt::plugins::tv5plugins::Creator::saveObjects()
 
         dataSource->add(dsType->getName(), m_dataSet.get(), options);
       }
+
+      //clear buffer points
+      clearBufferPoints(m_dataSet.get());
     }
 
   }
@@ -488,4 +500,130 @@ bool te::qt::plugins::tv5plugins::Creator::panMouseReleaseEvent(QMouseEvent* e)
   drawSelecteds();
 
   return true;
+}
+
+void te::qt::plugins::tv5plugins::Creator::clearBufferPoints(te::da::DataSet* ds)
+{
+  // Gets the layer schema
+  std::auto_ptr<const te::map::LayerSchema> schema(m_coordLayer->getSchema());
+
+  te::mem::DataSet* intruderDataSet = 0;
+
+  double distance = 0.;
+
+  if (m_distLineEdit->text().isEmpty())
+    distance = DISTANCE;
+  else
+    distance = m_distLineEdit->text().toDouble();
+
+  distance = distance / 2.;
+
+  std::size_t geomPos = te::da::GetFirstSpatialPropertyPos(ds);
+
+  ds->moveBeforeFirst();
+
+  while (ds->moveNext())
+  {
+    std::auto_ptr<te::gm::Geometry> geom = ds->getGeometry(geomPos);
+
+    if (geom.get())
+    {
+      std::auto_ptr<te::gm::Geometry> geomBuffer(geom->buffer(distance, 16, te::gm::CapButtType));
+
+      int itemId = ds->getInt32("id");
+
+      // Bulding the query box
+      te::gm::Envelope envelope(*geomBuffer->getMBR());
+
+      te::gm::Envelope reprojectedEnvelope(envelope);
+
+      if ((m_coordLayer->getSRID() != TE_UNKNOWN_SRS) && (m_display->getSRID() != TE_UNKNOWN_SRS) && (m_coordLayer->getSRID() != m_display->getSRID()))
+        reprojectedEnvelope.transform(m_display->getSRID(), m_coordLayer->getSRID());
+
+      if (!reprojectedEnvelope.intersects(m_coordLayer->getExtent()))
+        continue;
+
+      te::gm::GeometryProperty* gp = te::da::GetFirstGeomProperty(schema.get());
+
+      // Gets the dataset
+      std::auto_ptr<te::da::DataSet> dataset = m_coordLayer->getData(gp->getName(), &reprojectedEnvelope, te::gm::INTERSECTS);
+      assert(dataset.get());
+
+      std::vector<std::string> pnames;
+      te::da::GetOIDPropertyNames(schema.get(), pnames);
+
+      while (dataset->moveNext())
+      {
+        std::auto_ptr<te::gm::Geometry> g(dataset->getGeometry(gp->getName()));
+
+        int curId = dataset->getInt32("id");
+
+        if (curId == itemId)
+          continue;
+
+        if (g->getSRID() == TE_UNKNOWN_SRS)
+          g->setSRID(m_coordLayer->getSRID());
+
+        if (!geomBuffer->contains(g.get()))
+          continue;
+
+        // Feature found
+        te::da::ObjectId* objId = te::da::GenerateOID(dataset.get(), pnames);
+
+        if (!intruderDataSet)
+        {
+          std::auto_ptr<const te::map::LayerSchema> dsType(m_coordLayer->getSchema());
+
+          intruderDataSet = new te::mem::DataSet(dsType.get());
+        }
+
+        //create dataset item
+        te::mem::DataSetItem* item = new te::mem::DataSetItem(intruderDataSet);
+
+        //fid
+        item->setInt32(0, dataset->getInt32("FID"));
+
+        //set id
+        item->setInt32(1, dataset->getInt32("id"));
+
+        //set origin id
+        item->setInt32(2, dataset->getInt32("originId"));
+
+        //set area
+        item->setDouble(3, dataset->getDouble("area"));
+
+        //forest type
+        item->setString(4, "INTRUDER");
+
+        //set geometry
+        item->setGeometry(5, g.release());
+
+        intruderDataSet->add(item);
+      }
+    }
+  }
+
+  if (intruderDataSet)
+  {
+    te::da::DataSourcePtr dataSource = te::da::GetDataSource(m_coordLayer->getDataSourceId());
+
+    //update live dataset
+    std::vector<size_t> ids;
+    ids.push_back(0);
+
+    std::vector< std::set<int> > properties;
+    std::size_t dsSize = intruderDataSet->size();
+
+    for (std::size_t t = 0; t < dsSize; ++t)
+    {
+      std::set<int> setPos;
+      setPos.insert(4);
+
+      properties.push_back(setPos);
+    }
+
+    intruderDataSet->moveBeforeFirst();
+
+    dataSource->update(schema->getName(), intruderDataSet, properties, ids);
+  }
 }

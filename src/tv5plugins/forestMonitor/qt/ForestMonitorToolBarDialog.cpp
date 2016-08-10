@@ -187,6 +187,8 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::createActions()
   m_ui->m_creatorDeadToolButton->setDefaultAction(m_actionCreatorDead);
   m_ui->m_trackAutoClassifierToolButton->setDefaultAction(m_actionAutoTrack);
   m_ui->m_trackDeadClassifierToolButton->setDefaultAction(m_actionDeadTrack);
+
+  m_ui->m_updateToolButton->setVisible(false);
   
   //add to tool group from app
   toolsGroup->addAction(m_actionEraser);
@@ -260,6 +262,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorToolButto
   te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::CREATED_TYPE);
+  tool->setLineEditComponents(m_ui->m_distLineEdit);
   m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
@@ -283,6 +286,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorLiveToolB
   te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::LIVE_TYPE);
+  tool->setLineEditComponents(m_ui->m_distLineEdit);
   m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
@@ -306,6 +310,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorDeadToolB
   te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::DEAD_TYPE);
+  tool->setLineEditComponents(m_ui->m_distLineEdit);
   m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;

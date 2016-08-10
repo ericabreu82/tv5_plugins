@@ -37,6 +37,9 @@
 #include <list>
 #include <string>
 
+// QT
+#include <QLineEdit>
+
 namespace te
 {
   namespace qt
@@ -91,6 +94,8 @@ namespace te
           /*! \brief Destructor. */
           ~Creator();
 
+          void setLineEditComponents(QLineEdit* distLineEdit);
+
           //@}
 
           /** @name AbstractTool Methods
@@ -122,6 +127,8 @@ namespace te
 
           bool panMouseReleaseEvent(QMouseEvent* e);
 
+          void clearBufferPoints(te::da::DataSet* ds);
+
         private:
 
           te::map::AbstractLayerPtr m_coordLayer;         //!<The layer that will be classified.
@@ -130,6 +137,8 @@ namespace te
           std::auto_ptr<te::mem::DataSet> m_dataSet;
 
           int m_starterId;
+
+          QLineEdit* m_distLineEdit;
 
           te::qt::plugins::tv5plugins::CreatorType m_type;
 
