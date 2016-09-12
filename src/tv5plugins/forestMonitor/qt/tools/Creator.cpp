@@ -53,6 +53,7 @@
 #include <memory>
 
 #define DISTANCE 2.0
+#define TOLERANCE_FACTOR 0.2
 
 te::qt::plugins::tv5plugins::Creator::Creator(te::qt::widgets::MapDisplay* display, const QCursor& cursor, te::map::AbstractLayerPtr coordLayer, te::map::AbstractLayerPtr parcelLayer, te::qt::plugins::tv5plugins::CreatorType type , QObject* parent)
   : AbstractTool(display, parent),
@@ -62,6 +63,7 @@ te::qt::plugins::tv5plugins::Creator::Creator(te::qt::widgets::MapDisplay* displ
   m_panStarted(false)
 {
   m_distLineEdit = 0;
+  m_distanceToleranceFactorLineEdit = 0;
 
   getStartIdValue();
 
@@ -78,9 +80,10 @@ te::qt::plugins::tv5plugins::Creator::~Creator()
   draft->fill(Qt::transparent);
 }
 
-void te::qt::plugins::tv5plugins::Creator::setLineEditComponents(QLineEdit* distLineEdit)
+void te::qt::plugins::tv5plugins::Creator::setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceToleranceFactorLineEdit)
 {
   m_distLineEdit = distLineEdit;
+  m_distanceToleranceFactorLineEdit = distanceToleranceFactorLineEdit;
 }
 
 bool te::qt::plugins::tv5plugins::Creator::eventFilter(QObject* watched, QEvent* e)
@@ -516,7 +519,16 @@ void te::qt::plugins::tv5plugins::Creator::clearBufferPoints(te::da::DataSet* ds
   else
     distance = m_distLineEdit->text().toDouble();
 
-  distance = distance / 2.;
+  double toleranceFactor = 0.;
+
+  if (m_distanceToleranceFactorLineEdit->text().isEmpty())
+     toleranceFactor = TOLERANCE_FACTOR;
+  else
+     toleranceFactor = m_distanceToleranceFactorLineEdit->text().toDouble();
+ 
+  //(1-tolerancia_dmudas)*dmudas.
+  distance = (1. - toleranceFactor) * distance;
+  //distance = distance / 2.;
 
   std::size_t geomPos = te::da::GetFirstSpatialPropertyPos(ds);
 

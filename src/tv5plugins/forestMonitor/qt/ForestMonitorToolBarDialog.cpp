@@ -262,7 +262,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorToolButto
   te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::CREATED_TYPE);
-  tool->setLineEditComponents(m_ui->m_distLineEdit);
+  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distTolLineEdit);
   m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
@@ -286,7 +286,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorLiveToolB
   te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::LIVE_TYPE);
-  tool->setLineEditComponents(m_ui->m_distLineEdit);
+  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distTolLineEdit);
   m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;
@@ -310,7 +310,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorToolBarDialog::onCreatorDeadToolB
   te::map::AbstractLayerPtr layerParcel = varLayerParcel.value<te::map::AbstractLayerPtr>();
 
   te::qt::plugins::tv5plugins::Creator* tool = new te::qt::plugins::tv5plugins::Creator(m_appDisplay->getDisplay(), Qt::ArrowCursor, layerPoints, layerParcel, te::qt::plugins::tv5plugins::DEAD_TYPE);
-  tool->setLineEditComponents(m_ui->m_distLineEdit);
+  tool->setLineEditComponents(m_ui->m_distLineEdit, m_ui->m_distTolLineEdit);
   m_appDisplay->getDisplay()->setCurrentTool(tool);
 
   m_clearTool = true;

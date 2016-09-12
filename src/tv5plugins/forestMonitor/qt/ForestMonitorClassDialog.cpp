@@ -28,6 +28,7 @@
 #include <terralib/common/progress/TaskProgress.h>
 #include <terralib/common/STLUtils.h>
 #include <terralib/common/StringUtils.h>
+#include <terralib/dataaccess/datasource/DataSourceFactory.h>
 #include <terralib/dataaccess/datasource/DataSourceInfoManager.h>
 #include <terralib/dataaccess/datasource/DataSourceManager.h>
 #include <terralib/dataaccess/utils/Utils.h>
@@ -62,9 +63,13 @@
 #include <QValidator>
 
 // Boost
+#include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
+
 
 Q_DECLARE_METATYPE(te::map::AbstractLayerPtr);
 
@@ -96,6 +101,8 @@ te::qt::plugins::tv5plugins::ForestMonitorClassDialog::ForestMonitorClassDialog(
   connect(m_ui->m_erosionPushButton, SIGNAL(clicked()), this, SLOT(onErosionPushButtonClicked()));
   connect(m_ui->m_targetFileToolButton, SIGNAL(pressed()), this, SLOT(onTargetFileToolButtonPressed()));
   connect(m_ui->m_okPushButton, SIGNAL(clicked()), this, SLOT(onOkPushButtonClicked()));
+  connect(m_ui->m_runFromFilePushButton, SIGNAL(clicked()), this, SLOT(onLoadToolButtonClicked()));
+  connect(m_ui->m_saveToFilePushButton, SIGNAL(clicked()), this, SLOT(onSaveToolButtonClicked()));
 
   //validators
   m_ui->m_dilationLineEdit->setValidator(new QDoubleValidator(this));
@@ -503,12 +510,14 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     QMessageBox::information(this, tr("Warning"), tr("Define a repository for the result."));
     return;
   }
+  std::string repository = m_ui->m_repositoryLineEdit->text().toStdString();
 
   if (m_ui->m_newLayerNameLineEdit->text().isEmpty())
   {
     QMessageBox::information(this, tr("Warning"), tr("Define a name for the resulting layer."));
     return;
   }
+  std::string dataSetName = m_ui->m_newLayerNameLineEdit->text().toStdString();
 
   if (m_ui->m_originalLayerComboBox->currentText().isEmpty() || m_ui->m_ndviLayerComboBox->currentText().isEmpty() || m_ui->m_vecComboBox->currentText().isEmpty())
   {
@@ -516,29 +525,22 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     return;
   }
 
-  std::string newLayerName = m_ui->m_newLayerNameLineEdit->text().toStdString();
-
   //get ndvi layer
   QVariant varLayer = m_ui->m_ndviLayerComboBox->itemData(m_ui->m_ndviLayerComboBox->currentIndex(), Qt::UserRole);
 
   te::map::AbstractLayerPtr ndviLayer = varLayer.value<te::map::AbstractLayerPtr>();
 
-  std::auto_ptr<te::da::DataSet> ndviDS = ndviLayer->getData();
+  //get input vectorial layer
+  QVariant varLayerVec = m_ui->m_vecComboBox->itemData(m_ui->m_vecComboBox->currentIndex(), Qt::UserRole);
 
-  std::size_t ndviRpos = te::da::GetFirstPropertyPos(ndviDS.get(), te::dt::RASTER_TYPE);
+  te::map::AbstractLayerPtr vecLayer = varLayerVec.value<te::map::AbstractLayerPtr>();
 
-  std::auto_ptr<te::rst::Raster> ndviRst = ndviDS->getRaster(ndviRpos);
-
-  ndviRst->getGrid()->setSRID(ndviLayer->getSRID());
-
-  int ndviBand = 0;
-
+  //get operation parameters
   if (m_ui->m_thresholdLineEdit->text().isEmpty())
   {
     QMessageBox::information(this, tr("Warning"), tr("Threshold not defined."));
     return;
   }
-
   double threshold = m_ui->m_thresholdLineEdit->text().toDouble();
 
   if (m_ui->m_dilationResLineEdit->text().isEmpty())
@@ -546,7 +548,6 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     QMessageBox::information(this, tr("Warning"), tr("Erosion value not defined."));
     return;
   }
-
   int dilation = m_ui->m_dilationResLineEdit->text().toInt();
 
   if (m_ui->m_erosionResLineEdit->text().isEmpty())
@@ -554,232 +555,204 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     QMessageBox::information(this, tr("Warning"), tr("Dilation value not defined."));
     return;
   }
-
   int erosion = m_ui->m_erosionResLineEdit->text().toInt();
+
+  te::da::DataSourcePtr vecDataSource = te::da::GetDataSource(vecLayer->getDataSourceId());
+  std::map<std::string, std::string> vecConnInfo = vecDataSource->getConnectionInfo();
+
+  int vecSRID = vecLayer->getSRID();
+  std::string vecURI = vecConnInfo["URI"];
+
+  te::da::DataSourcePtr rasterDataSource = te::da::GetDataSource(ndviLayer->getDataSourceId());
+  std::map<std::string, std::string> rasterConnInfo = rasterDataSource->getConnectionInfo();
+
+  int rasterSRID = ndviLayer->getSRID();
+  std::string rasterURI = rasterConnInfo["URI"];
+
+  //run operation
+  bool res = runClassOperation(repository, dataSetName, vecURI, vecSRID, rasterURI, rasterSRID, threshold, dilation, erosion, m_ui->m_saveResultImageCheckBox->isChecked());
+
+  if (res)
+    accept();
+}
+
+void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onSaveToolButtonClicked()
+{
+  // check input parameters
+  if (m_ui->m_repositoryLineEdit->text().isEmpty())
+  {
+    QMessageBox::information(this, tr("Warning"), tr("Define a repository for the result."));
+    return;
+  }
+  std::string repository = m_ui->m_repositoryLineEdit->text().toStdString();
+
+  if (m_ui->m_newLayerNameLineEdit->text().isEmpty())
+  {
+    QMessageBox::information(this, tr("Warning"), tr("Define a name for the resulting layer."));
+    return;
+  }
+  std::string dataSetName = m_ui->m_newLayerNameLineEdit->text().toStdString();
+
+  if (m_ui->m_originalLayerComboBox->currentText().isEmpty() || m_ui->m_ndviLayerComboBox->currentText().isEmpty() || m_ui->m_vecComboBox->currentText().isEmpty())
+  {
+    QMessageBox::information(this, tr("Warning"), tr("Input parameters are not defined."));
+    return;
+  }
+
+  //get ndvi layer
+  QVariant varLayer = m_ui->m_ndviLayerComboBox->itemData(m_ui->m_ndviLayerComboBox->currentIndex(), Qt::UserRole);
+
+  te::map::AbstractLayerPtr ndviLayer = varLayer.value<te::map::AbstractLayerPtr>();
 
   //get input vectorial layer
   QVariant varLayerVec = m_ui->m_vecComboBox->itemData(m_ui->m_vecComboBox->currentIndex(), Qt::UserRole);
 
   te::map::AbstractLayerPtr vecLayer = varLayerVec.value<te::map::AbstractLayerPtr>();
 
-  //get datasource
-  std::string repository = m_ui->m_repositoryLineEdit->text().toStdString();
-
-  //create new data source
-  std::map<std::string, std::string> dsInfo;
-
-  te::da::DataSourcePtr outputDataSource = createDataSource(repository, dsInfo);
-
-  //create datasource to save the output information
-  std::string dataSetName = m_ui->m_newLayerNameLineEdit->text().toStdString();
-
-  std::size_t idx = dataSetName.find(".");
-  if (idx != std::string::npos)
-    dataSetName = dataSetName.substr(0, idx);
-
-  std::string repName = m_ui->m_repositoryLineEdit->text().toStdString();
-
-  idx = repName.find(".");
-  if (idx != std::string::npos)
-    repName = repName.substr(0, idx);
-
-  //create datasource to save polygons information
-  std::string polyDataSourcePath = repName + "_polygons" + ".shp";
-
-  std::map<std::string, std::string> polyDsInfo;
-
-  te::da::DataSourcePtr polyOutputDataSource = createDataSource(polyDataSourcePath, polyDsInfo);
-
-  //progress
-  if (!m_progressDlg)
+  //get operation parameters
+  if (m_ui->m_thresholdLineEdit->text().isEmpty())
   {
-    m_progressDlg = new te::qt::widgets::ProgressViewerDialog(this);
-    m_progressId = te::common::ProgressManager::getInstance().addViewer(m_progressDlg);
+    QMessageBox::information(this, tr("Warning"), tr("Threshold not defined."));
+    return;
   }
+  double threshold = m_ui->m_thresholdLineEdit->text().toDouble();
 
-  QApplication::setOverrideCursor(Qt::WaitCursor);
-
-  try
+  if (m_ui->m_dilationResLineEdit->text().isEmpty())
   {
-    std::map<std::string, std::string> rInfo;
-    //rInfo["FORCE_MEM_DRIVER"] = "TRUE";
+    QMessageBox::information(this, tr("Warning"), tr("Erosion value not defined."));
+    return;
+  }
+  int dilation = m_ui->m_dilationResLineEdit->text().toInt();
 
-    //std::string type = "MEM";
-    std::string type = "GDAL";
+  if (m_ui->m_erosionResLineEdit->text().isEmpty())
+  {
+    QMessageBox::information(this, tr("Warning"), tr("Dilation value not defined."));
+    return;
+  }
+  int erosion = m_ui->m_erosionResLineEdit->text().toInt();
 
-    std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> centroidsVec;
+  te::da::DataSourcePtr vecDataSource = te::da::GetDataSource(vecLayer->getDataSourceId());
+  std::map<std::string, std::string> vecConnInfo = vecDataSource->getConnectionInfo();
 
-    std::auto_ptr<te::da::DataSet> dataSet = vecLayer->getData();
-    std::auto_ptr<te::da::DataSetType> dataSetType = vecLayer->getSchema();
+  int vecSRID = vecLayer->getSRID();
+  std::string vecURI = vecConnInfo["URI"];
 
-    std::size_t gpos = te::da::GetFirstPropertyPos(dataSet.get(), te::dt::GEOMETRY_TYPE);
-    te::gm::GeometryProperty* geomProp = te::da::GetFirstGeomProperty(dataSetType.get());
+  te::da::DataSourcePtr rasterDataSource = te::da::GetDataSource(ndviLayer->getDataSourceId());
+  std::map<std::string, std::string> rasterConnInfo = rasterDataSource->getConnectionInfo();
 
-    bool remap = false;
+  int rasterSRID = ndviLayer->getSRID();
+  std::string rasterURI = rasterConnInfo["URI"];
 
-    if (vecLayer->getSRID() != ndviRst->getSRID())
-      remap = true;
+  std::string save = "FALSE";
+  if (m_ui->m_saveResultImageCheckBox->isChecked())
+    save = "TRUE";
 
-    te::da::PrimaryKey* pk = dataSetType->getPrimaryKey();
-    std::string name = pk->getProperties()[0]->getName();
+  QString fileName = QFileDialog::getSaveFileName(this, tr("Save Forest Monitor Class Parameters"), "", "JSON File (*.json)");
 
-    std::size_t size = dataSet->size();
+  if (fileName.isEmpty())
+    return;
 
-    dataSet->moveBeforeFirst();
+  /*
+  std::string repository, 
+  std::string dataSetName, 
+  std::string vecURI, 
+  int vecSRID, 
+  std::string rasterURI, 
+  int rasterSRID, 
+  double threshold, 
+  int dilation, 
+  int erosion, 
+  bool saveResultImage
 
-    te::common::TaskProgress task("Associating Centroids");
-    task.setTotalSteps(size);
+  repository, dataSetName, vecURI, vecSRID, rasterURI, rasterSRID, threshold, dilation, erosion, m_ui->m_saveResultImageCheckBox->isChecked()
+  */
 
-    std::vector<te::gm::Geometry*> fullGeomVec;
+  boost::property_tree::ptree pt;
 
-    //get geometries
-    while (dataSet->moveNext())
+  boost::property_tree::ptree children;
+
+  boost::property_tree::ptree child;
+  child.put("repository", repository);
+  child.put("dataSetName", dataSetName);
+
+  child.put("vectorURI", vecURI);
+  child.put("vectorSRID", te::common::Convert2String(vecSRID));
+
+  child.put("rasterURI", rasterURI);
+  child.put("rasterSRID", te::common::Convert2String(rasterSRID));
+
+  child.put("threshold", te::common::Convert2String(threshold));
+  child.put("dilation", te::common::Convert2String(dilation));
+  child.put("erosion", te::common::Convert2String(erosion));
+
+  child.put("saveResult", save);
+
+  children.push_back(std::make_pair("Parameters", child));
+
+  pt.add_child("ForestMonitor_Classification", children);
+
+  boost::property_tree::json_parser::write_json(fileName.toStdString(), pt);
+}
+
+void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onLoadToolButtonClicked()
+{
+  QStringList fileNames = QFileDialog::getOpenFileNames(this, tr("Load Forest Monitor Class Parameters"), "", "JSON File (*.json)");
+
+  if (fileNames.isEmpty())
+    return;
+
+  QStringList::iterator it;
+
+  for (it = fileNames.begin(); it != fileNames.end(); ++it)
+  {
+    try
     {
-      if (!task.isActive())
+      boost::property_tree::ptree pt;
+      boost::property_tree::json_parser::read_json((*it).toStdString(), pt);
+
+      BOOST_FOREACH(boost::property_tree::ptree::value_type &v, pt.get_child("ForestMonitor_Classification"))
       {
-        break;
+        std::string repository = v.second.get<std::string>("repository");
+        std::string dataSetName = v.second.get<std::string>("dataSetName");
+
+        std::string vecURI = v.second.get<std::string>("vectorURI");
+        std::string vecSRIDStr = v.second.get<std::string>("vectorSRID");
+        int vecSRID = atoi(vecSRIDStr.c_str());
+
+        std::string rasterURI = v.second.get<std::string>("rasterURI");
+        std::string rasterSRIDStr = v.second.get<std::string>("rasterSRID");
+        int rasterSRID = atoi(rasterSRIDStr.c_str());
+
+        std::string thresholdStr = v.second.get<std::string>("threshold");
+        double threshold = atof(thresholdStr.c_str());
+        std::string dilationStr = v.second.get<std::string>("dilation");
+        int dilation = atoi(dilationStr.c_str());
+        std::string erosionStr = v.second.get<std::string>("erosion");
+        int erosion = atoi(erosionStr.c_str());
+
+        std::string saveResultStr = v.second.get<std::string>("saveResult");
+        bool saveResult = false;
+        if (saveResultStr == "TRUE")
+          saveResult = true;
+
+        runClassOperation(repository, dataSetName, vecURI, vecSRID, rasterURI, rasterSRID, threshold, dilation, erosion, saveResult);
       }
-
-      std::auto_ptr<te::gm::Geometry> g(dataSet->getGeometry(gpos));
-
-      if (!g->isValid())
-      {
-        continue;
-      }
-
-      g->setSRID(vecLayer->getSRID());
-
-      if (remap)
-        g->transform(ndviRst->getSRID());
-
-      int parcelId = dataSet->getInt32(name);
-
-      te::gm::Polygon* poly = 0;
-
-      if (g->getGeomTypeId() == te::gm::MultiPolygonType)
-      {
-        te::gm::MultiPolygon* mPoly = dynamic_cast<te::gm::MultiPolygon*>(g.get());
-
-        poly = dynamic_cast<te::gm::Polygon*>(mPoly->getGeometryN(0));
-      }
-      else if (g->getGeomTypeId() == te::gm::PolygonType)
-      {
-        poly = dynamic_cast<te::gm::Polygon*>(g.get());
-      }
-
-      if (!poly || !poly->isValid())
-        continue;
-
-      //create raster crop from parcel
-      rInfo["URI"] = repName + "_parcel_" + te::common::Convert2String(parcelId) + ".tif";
-      te::rst::RasterPtr parcelRaster(te::rst::CropRaster(*ndviRst.get(), *poly, rInfo, type));
-
-      //create threshold raster
-      rInfo["URI"] = repName + "_threshold_" + te::common::Convert2String(parcelId) + ".tif";
-      std::auto_ptr<te::rst::Raster> outputRaster = GenerateThresholdRaster(parcelRaster.get(), ndviBand, threshold, type, rInfo);
-
-      //create erosion raster
-      if (dilation > 0)
-      {
-        rInfo["URI"] = repName + "_erosion_" + te::common::Convert2String(parcelId) + ".tif";
-        std::auto_ptr<te::rst::Raster> erosionRaster = GenerateFilterRaster(outputRaster.get(), 0, dilation, te::rp::Filter::InputParameters::DilationFilterT, type, rInfo);
-
-        outputRaster.reset(0);
-
-        outputRaster = erosionRaster;
-      }
-
-      //create dilation raster
-      if (erosion > 0)
-      {
-        rInfo["URI"] = repName + "_dilation_" + te::common::Convert2String(parcelId) + ".tif";
-        std::auto_ptr<te::rst::Raster> dilationRaster = GenerateFilterRaster(outputRaster.get(), 0, erosion, te::rp::Filter::InputParameters::ErosionFilterT, type, rInfo);
-
-        outputRaster.reset(0);
-
-        outputRaster = dilationRaster;
-      }
-
-      //export image
-      if (m_ui->m_saveResultImageCheckBox->isChecked())
-      {
-        std::string repName = m_ui->m_repositoryLineEdit->text().toStdString();
-
-        std::size_t idx = repName.find(".");
-        if (idx != std::string::npos)
-          repName = repName.substr(0, idx);
-
-        std::string rasterFileName = repName + "_" + te::common::Convert2String(parcelId) + ".tif";
-
-        te::qt::plugins::tv5plugins::ExportRaster(outputRaster.get(), rasterFileName);
-      }
-
-      //create geometries
-      std::vector<te::gm::Geometry*> geomVec = te::qt::plugins::tv5plugins::Raster2Vector(outputRaster.get(), 0);
-
-      outputRaster.reset(0);
-
-      //get centroids
-      te::qt::plugins::tv5plugins::ExtractCentroids(geomVec, centroidsVec, parcelId);
-
-      if (geomVec.size() > 2)
-      {
-        for (std::size_t t = 1; t < geomVec.size(); ++t)
-        {
-          fullGeomVec.push_back(geomVec[t]);
-        }
-      }
-
-      geomVec.clear();
     }
+    catch (boost::property_tree::json_parser::json_parser_error &je)
+    {
+      QString errmsg = tr("Error parsing: ") + je.filename().c_str() + ": " + je.message().c_str();
 
-    //export data
-    te::qt::plugins::tv5plugins::ExportVector(centroidsVec, dataSetName, "OGR", dsInfo, ndviRst->getSRID());
+      QMessageBox::warning(this, tr("Warning"), errmsg);
 
-    te::common::FreeContents(centroidsVec);
+      return;
+    }
+    catch (std::exception const& e)
+    {
+      QString errmsg = e.what();
 
-    centroidsVec.clear();
-
-    std::string polyDataSetName = dataSetName + "_polygons";
-
-    te::qt::plugins::tv5plugins::ExportPolyVector(fullGeomVec, polyDataSetName, "OGR", polyDsInfo, ndviRst->getSRID());
-
-    te::common::FreeContents(fullGeomVec);
-
-    fullGeomVec.clear();
-
-    //create layer
-    te::da::DataSourcePtr outDataSource = te::da::GetDataSource(outputDataSource->getId());
-
-    te::qt::widgets::DataSet2Layer converter(outputDataSource->getId());
-
-    te::da::DataSetTypePtr dt(outDataSource->getDataSetType(dataSetName).release());
-
-    m_outputLayer = converter(dt);
-
-    //create legend
-    createLegend();
+      QMessageBox::warning(this, tr("Warning"), errmsg);
+    }
   }
-  catch (const std::exception& e)
-  {
-    QMessageBox::warning(this, tr("Warning"), e.what());
-
-    QApplication::restoreOverrideCursor();
-
-    return;
-  }
-  catch (...)
-  {
-    QMessageBox::warning(this, tr("Warning"), tr("Internal Error."));
-
-    QApplication::restoreOverrideCursor();
-
-    return;
-  }
-
-  QApplication::restoreOverrideCursor();
-
-  accept();
 }
 
 void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::drawRaster(te::rst::Raster* raster, te::qt::widgets::MapDisplay* mapDisplay, te::se::Style* style)
@@ -946,4 +919,238 @@ te::se::PointSymbolizer* te::qt::plugins::tv5plugins::ForestMonitorClassDialog::
   symbolizer->setGraphic(graphic);
 
   return symbolizer;
+}
+
+bool te::qt::plugins::tv5plugins::ForestMonitorClassDialog::runClassOperation(std::string repository, std::string dataSetName, std::string vecURI, int vecSRID, std::string rasterURI, int rasterSRID, double threshold, int dilation, int erosion, bool saveResultImage)
+{
+  //get ndvi raster
+  std::map<std::string, std::string> rinfo;
+  rinfo["URI"] = rasterURI;
+
+  std::auto_ptr<te::rst::Raster> ndviRst(te::rst::RasterFactory::open(rinfo));
+  ndviRst->getGrid()->setSRID(rasterSRID);
+
+  int ndviBand = 0;
+
+  //create new data source
+  std::map<std::string, std::string> dsInfo;
+
+  te::da::DataSourcePtr outputDataSource = createDataSource(repository, dsInfo);
+
+  std::size_t idx = dataSetName.find(".");
+  if (idx != std::string::npos)
+    dataSetName = dataSetName.substr(0, idx);
+
+  std::string repName = repository;
+
+  idx = repName.find(".");
+  if (idx != std::string::npos)
+    repName = repName.substr(0, idx);
+
+  //create datasource to save polygons information
+  std::string polyDataSourcePath = repName + "_polygons" + ".shp";
+
+  std::map<std::string, std::string> polyDsInfo;
+
+  te::da::DataSourcePtr polyOutputDataSource = createDataSource(polyDataSourcePath, polyDsInfo);
+
+  //progress
+  if (!m_progressDlg)
+  {
+    m_progressDlg = new te::qt::widgets::ProgressViewerDialog(this);
+    m_progressId = te::common::ProgressManager::getInstance().addViewer(m_progressDlg);
+  }
+
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+
+  try
+  {
+    std::map<std::string, std::string> rInfo;
+    //rInfo["FORCE_MEM_DRIVER"] = "TRUE";
+
+    //std::string type = "MEM";
+    std::string type = "GDAL";
+
+    std::vector<te::qt::plugins::tv5plugins::CentroidInfo*> centroidsVec;
+
+    //open vector data
+    std::map<std::string, std::string> connInfo;
+    connInfo["URI"] = vecURI;
+
+    std::auto_ptr<te::da::DataSource> dsptr = te::da::DataSourceFactory::make("OGR");
+    dsptr->setConnectionInfo(connInfo);
+    dsptr->open();
+    std::vector<std::string> dataSetNames = dsptr->getDataSetNames();
+
+    std::auto_ptr<te::da::DataSet> dataSet = dsptr->getDataSet(dataSetNames[0]);
+    std::auto_ptr<te::da::DataSetType> dataSetType = dsptr->getDataSetType(dataSetNames[0]);
+
+    std::size_t gpos = te::da::GetFirstPropertyPos(dataSet.get(), te::dt::GEOMETRY_TYPE);
+    te::gm::GeometryProperty* geomProp = te::da::GetFirstGeomProperty(dataSetType.get());
+
+    bool remap = false;
+
+    if (vecSRID != rasterSRID)
+      remap = true;
+
+    te::da::PrimaryKey* pk = dataSetType->getPrimaryKey();
+    std::string name = pk->getProperties()[0]->getName();
+
+    std::size_t size = dataSet->size();
+
+    dataSet->moveBeforeFirst();
+
+    te::common::TaskProgress task("Associating Centroids");
+    task.setTotalSteps(size);
+
+    std::vector<te::gm::Geometry*> fullGeomVec;
+
+    //get geometries
+    while (dataSet->moveNext())
+    {
+      if (!task.isActive())
+      {
+        break;
+      }
+
+      std::auto_ptr<te::gm::Geometry> g(dataSet->getGeometry(gpos));
+
+      if (!g->isValid())
+      {
+        continue;
+      }
+
+      g->setSRID(vecSRID);
+
+      if (remap)
+        g->transform(ndviRst->getSRID());
+
+      int parcelId = dataSet->getInt32(name);
+
+      te::gm::Polygon* poly = 0;
+
+      if (g->getGeomTypeId() == te::gm::MultiPolygonType)
+      {
+        te::gm::MultiPolygon* mPoly = dynamic_cast<te::gm::MultiPolygon*>(g.get());
+
+        poly = dynamic_cast<te::gm::Polygon*>(mPoly->getGeometryN(0));
+      }
+      else if (g->getGeomTypeId() == te::gm::PolygonType)
+      {
+        poly = dynamic_cast<te::gm::Polygon*>(g.get());
+      }
+
+      if (!poly || !poly->isValid())
+        continue;
+
+      //create raster crop from parcel
+      rInfo["URI"] = repName + "_parcel_" + te::common::Convert2String(parcelId) + ".tif";
+      te::rst::RasterPtr parcelRaster(te::rst::CropRaster(*ndviRst.get(), *poly, rInfo, type));
+
+      //create threshold raster
+      rInfo["URI"] = repName + "_threshold_" + te::common::Convert2String(parcelId) + ".tif";
+      std::auto_ptr<te::rst::Raster> outputRaster = GenerateThresholdRaster(parcelRaster.get(), ndviBand, threshold, type, rInfo);
+
+      //create erosion raster
+      if (dilation > 0)
+      {
+        rInfo["URI"] = repName + "_erosion_" + te::common::Convert2String(parcelId) + ".tif";
+        std::auto_ptr<te::rst::Raster> erosionRaster = GenerateFilterRaster(outputRaster.get(), 0, dilation, te::rp::Filter::InputParameters::DilationFilterT, type, rInfo);
+
+        outputRaster.reset(0);
+
+        outputRaster = erosionRaster;
+      }
+
+      //create dilation raster
+      if (erosion > 0)
+      {
+        rInfo["URI"] = repName + "_dilation_" + te::common::Convert2String(parcelId) + ".tif";
+        std::auto_ptr<te::rst::Raster> dilationRaster = GenerateFilterRaster(outputRaster.get(), 0, erosion, te::rp::Filter::InputParameters::ErosionFilterT, type, rInfo);
+
+        outputRaster.reset(0);
+
+        outputRaster = dilationRaster;
+      }
+
+      //export image
+      if (saveResultImage)
+      {
+        std::string repName = repository;
+
+        std::size_t idx = repName.find(".");
+        if (idx != std::string::npos)
+          repName = repName.substr(0, idx);
+
+        std::string rasterFileName = repName + "_" + te::common::Convert2String(parcelId) + ".tif";
+
+        te::qt::plugins::tv5plugins::ExportRaster(outputRaster.get(), rasterFileName);
+      }
+
+      //create geometries
+      std::vector<te::gm::Geometry*> geomVec = te::qt::plugins::tv5plugins::Raster2Vector(outputRaster.get(), 0);
+
+      outputRaster.reset(0);
+
+      //get centroids
+      te::qt::plugins::tv5plugins::ExtractCentroids(geomVec, centroidsVec, parcelId);
+
+      if (geomVec.size() > 2)
+      {
+        for (std::size_t t = 1; t < geomVec.size(); ++t)
+        {
+          fullGeomVec.push_back(geomVec[t]);
+        }
+      }
+
+      geomVec.clear();
+    }
+
+    //export data
+    te::qt::plugins::tv5plugins::ExportVector(centroidsVec, dataSetName, "OGR", dsInfo, ndviRst->getSRID());
+
+    te::common::FreeContents(centroidsVec);
+
+    centroidsVec.clear();
+
+    std::string polyDataSetName = dataSetName + "_polygons";
+
+    te::qt::plugins::tv5plugins::ExportPolyVector(fullGeomVec, polyDataSetName, "OGR", polyDsInfo, ndviRst->getSRID());
+
+    te::common::FreeContents(fullGeomVec);
+
+    fullGeomVec.clear();
+
+    //create layer
+    te::da::DataSourcePtr outDataSource = te::da::GetDataSource(outputDataSource->getId());
+
+    te::qt::widgets::DataSet2Layer converter(outputDataSource->getId());
+
+    te::da::DataSetTypePtr dt(outDataSource->getDataSetType(dataSetName).release());
+
+    m_outputLayer = converter(dt);
+
+    //create legend
+    createLegend();
+  }
+  catch (const std::exception& e)
+  {
+    QMessageBox::warning(this, tr("Warning"), e.what());
+
+    QApplication::restoreOverrideCursor();
+
+    return false;
+  }
+  catch (...)
+  {
+    QMessageBox::warning(this, tr("Warning"), tr("Internal Error."));
+
+    QApplication::restoreOverrideCursor();
+
+    return false;
+  }
+
+  QApplication::restoreOverrideCursor();
+
+  return true;
 }

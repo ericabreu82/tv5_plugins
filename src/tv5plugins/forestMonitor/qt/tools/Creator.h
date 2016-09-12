@@ -94,7 +94,7 @@ namespace te
           /*! \brief Destructor. */
           ~Creator();
 
-          void setLineEditComponents(QLineEdit* distLineEdit);
+          void setLineEditComponents(QLineEdit* distLineEdit, QLineEdit* distanceToleranceFactorLineEdit);
 
           //@}
 
@@ -139,6 +139,7 @@ namespace te
           int m_starterId;
 
           QLineEdit* m_distLineEdit;
+          QLineEdit* m_distanceToleranceFactorLineEdit;
 
           te::qt::plugins::tv5plugins::CreatorType m_type;
 

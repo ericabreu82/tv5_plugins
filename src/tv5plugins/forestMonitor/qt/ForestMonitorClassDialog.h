@@ -96,6 +96,10 @@ namespace te
 
             void onOkPushButtonClicked();
 
+            void onSaveToolButtonClicked();
+
+            void onLoadToolButtonClicked();
+
           protected:
 
             void drawRaster(te::rst::Raster* raster, te::qt::widgets::MapDisplay* mapDisplay, te::se::Style* style = 0);
@@ -107,6 +111,8 @@ namespace te
             te::se::PointSymbolizer* createPointSymbolizer(std::string fillColor, std::string fillOpacity, 
                                                            std::string strokeColor, std::string strokeWidth, 
                                                            std::string markName, std::string markSize);
+
+            bool runClassOperation(std::string repository, std::string dataSetName, std::string vecURI, int vecSRID, std::string rasterURI, int rasterSRID, double threshold, int dilation, int erosion, bool saveResultImage);
 
           private:
 
