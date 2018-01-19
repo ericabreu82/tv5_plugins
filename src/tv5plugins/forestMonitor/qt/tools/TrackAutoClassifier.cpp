@@ -569,8 +569,8 @@ te::gm::Geometry* te::qt::plugins::tv5plugins::TrackAutoClassifier::createBuffer
 
             if (line && line->size() >= 2)
             {
-              std::auto_ptr<te::gm::Point> first(line->getPointN(0));
-              std::auto_ptr<te::gm::Point> last(line->getPointN(1));
+              std::unique_ptr<te::gm::Point> first(line->getPointN(0));
+              std::unique_ptr<te::gm::Point> last(line->getPointN(1));
 
               if (first->getSRID() != m_coordLayer->getSRID())
                 first->transform(m_coordLayer->getSRID());

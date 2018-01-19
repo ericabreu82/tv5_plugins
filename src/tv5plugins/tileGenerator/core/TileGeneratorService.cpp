@@ -60,12 +60,7 @@ te::qt::plugins::tv5plugins::TileGeneratorService::~TileGeneratorService()
 
 void te::qt::plugins::tv5plugins::TileGeneratorService::setInputParameters(std::list<te::map::AbstractLayerPtr> layers, te::gm::Envelope env, int srid, int zoomLevelMin, int zoomLevelMax, int tileSize, std::string path, std::string format)
 {
-  //reverse list
-  std::list<te::map::AbstractLayerPtr>::reverse_iterator it;
-  for(it = layers.rbegin(); it != layers.rend(); ++it) // for each layer
-  {
-    m_layers.push_back(it->get());
-  }
+  m_layers = layers;
 
   m_env = env;
   m_srid = srid;

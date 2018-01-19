@@ -24,8 +24,8 @@
 */
 
 // TerraLib
-#include <terralib/common/Translator.h>
-#include <terralib/common/Logger.h>
+#include <terralib/core/translator/Translator.h>
+#include <terralib/core/logger/Logger.h>
 #include <terralib/qt/af/ApplicationController.h>
 
 #include "Plugin.h"
@@ -62,8 +62,8 @@
 #include <QMenu>
 #include <QMenuBar>
 
-te::qt::plugins::tv5plugins::Plugin::Plugin(const te::plugin::PluginInfo& pluginInfo)
-  : QObject(), te::plugin::Plugin(pluginInfo), m_menu(0)
+te::qt::plugins::tv5plugins::Plugin::Plugin(const te::core::PluginInfo& pluginInfo)
+  : QObject(), te::core::CppPlugin(pluginInfo), m_menu(0)
 {
 }
 
@@ -180,4 +180,4 @@ void  te::qt::plugins::tv5plugins::Plugin::unRegisterActions()
 #endif
 }
 
-PLUGIN_CALL_BACK_IMPL(te::qt::plugins::tv5plugins::Plugin)
+TERRALIB_PLUGIN_CALL_BACK_IMPL(te::qt::plugins::tv5plugins::Plugin)

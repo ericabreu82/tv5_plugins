@@ -1,0 +1,24 @@
+{
+	"name":"te.da.tv5plugins",
+	"display_name":"TerraView 5 ThirdParty Plugins",
+	"description":"This plugin has operations made by third Party",
+	"version":"5.0.0",
+	"release":"2013-01-01",
+	"engine":"C++",
+	"license_description":"GNU Lesser General Public License v 3.0",
+	"license_URL":"http://www.gnu.org/licenses/lgpl-3.0-standalone.html",
+	"site":"http://www.dpi.inpe.br/terralib5/wiki/doku.php?id=wiki:designimplementation",
+	"dependencies":[],
+	"linked_libraries":[],
+	"resources":{"shared_library_name":"tv5_3rdparty_plugins"},
+	"parameters":[],
+	"provider":{
+		"name":"Eric Silva Abreu",
+		"site":"http://www.terralib.org/",
+		"email":"eric@dpi.inpe.br"
+	},
+	"host_application":{
+		"name":"TerraLib",
+		"version":"5.0.0-rc"
+	}
+}

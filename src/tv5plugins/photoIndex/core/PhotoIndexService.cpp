@@ -65,11 +65,10 @@ void te::qt::plugins::tv5plugins::PhotoIndexService::runService()
   checkParameters();
 
   //get input data source
-  std::map<std::string, std::string> connInfo;
-  connInfo["URI"] = m_path;
+  std::string connInfo("file://");
+  connInfo += m_path;
 
-  te::da::DataSourcePtr inputDataSource = te::da::DataSourceFactory::make("GDAL");
-  inputDataSource->setConnectionInfo(connInfo);
+  te::da::DataSourcePtr inputDataSource = te::da::DataSourceFactory::make("GDAL", connInfo);
   inputDataSource->open();
 
   //get srid

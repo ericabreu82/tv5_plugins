@@ -96,7 +96,7 @@ namespace te
 
             void drawRaster(te::rst::Raster* raster, te::qt::widgets::MapDisplay* mapDisplay, te::se::Style* style = 0);
 
-            te::da::DataSourcePtr createDataSource(std::string repository, std::map<std::string, std::string>& dsInfo);
+            te::da::DataSourcePtr createDataSource(std::string repository);
 
           private:
 

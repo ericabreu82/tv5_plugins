@@ -539,9 +539,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
   std::string repository = m_ui->m_repositoryLineEdit->text().toStdString();
 
   //create new data source
-  std::map<std::string, std::string> dsInfo;
-
-  te::da::DataSourcePtr outputDataSource = createDataSource(repository, dsInfo);
+  te::da::DataSourcePtr outputDataSource = createDataSource(repository);
 
   //create datasource to save the output information
   std::string dataSetName = m_ui->m_newLayerNameLineEdit->text().toStdString();
@@ -559,9 +557,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
   //create datasource to save polygons information
   std::string polyDataSourcePath = repName + "_polygons" + ".shp";
 
-  std::map<std::string, std::string> polyDsInfo;
-
-  te::da::DataSourcePtr polyOutputDataSource = createDataSource(polyDataSourcePath, polyDsInfo);
+  te::da::DataSourcePtr polyOutputDataSource = createDataSource(polyDataSourcePath);
 
   QApplication::setOverrideCursor(Qt::WaitCursor);
 
@@ -700,7 +696,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
     }
 
     //export data
-    te::qt::plugins::tv5plugins::ExportVector(centroidsVec, dataSetName, "OGR", dsInfo, ndviRst->getSRID());
+    te::qt::plugins::tv5plugins::ExportVector(centroidsVec, dataSetName, "OGR", outputDataSource->getConnectionInfo(), ndviRst->getSRID());
 
     te::common::FreeContents(centroidsVec);
 
@@ -708,7 +704,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::onOkPushButtonClicke
 
     std::string polyDataSetName = dataSetName + "_polygons";
 
-    te::qt::plugins::tv5plugins::ExportPolyVector(fullGeomVec, polyDataSetName, "OGR", polyDsInfo, ndviRst->getSRID());
+    te::qt::plugins::tv5plugins::ExportPolyVector(fullGeomVec, polyDataSetName, "OGR", polyOutputDataSource->getConnectionInfo(), ndviRst->getSRID());
 
     te::common::FreeContents(fullGeomVec);
 
@@ -773,7 +769,7 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::drawRaster(te::rst::
   // Draw raster
   canvas.clear();
 
-  te::map::DrawRaster(raster, &canvas, env, mapDisplay->getSRID(), envRst, raster->getSRID(), cs, mapDisplay->getScale());
+  te::map::DrawRaster(raster, &canvas, env, mapDisplay->getSRID(), envRst, raster->getSRID(), cs, 0, mapDisplay->getScale());
 
   if(hasToDelete)
     delete style;
@@ -781,18 +777,19 @@ void te::qt::plugins::tv5plugins::ForestMonitorClassDialog::drawRaster(te::rst::
   mapDisplay->repaint();
 }
 
-te::da::DataSourcePtr te::qt::plugins::tv5plugins::ForestMonitorClassDialog::createDataSource(std::string repository, std::map<std::string, std::string>& dsInfo)
+te::da::DataSourcePtr te::qt::plugins::tv5plugins::ForestMonitorClassDialog::createDataSource(std::string repository)
 {
   boost::filesystem::path uri(repository);
 
-  dsInfo["URI"] = uri.string();
+  std::string connInfo("file://");
+  connInfo += uri.string();
 
   boost::uuids::basic_random_generator<boost::mt19937> gen;
   boost::uuids::uuid u = gen();
   std::string id_ds = boost::uuids::to_string(u);
 
   te::da::DataSourceInfoPtr dsInfoPtr(new te::da::DataSourceInfo);
-  dsInfoPtr->setConnInfo(dsInfo);
+  dsInfoPtr->setConnInfo(connInfo);
   dsInfoPtr->setTitle(uri.stem().string());
   dsInfoPtr->setAccessDriver("OGR");
   dsInfoPtr->setType("OGR");

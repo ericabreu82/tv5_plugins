@@ -153,7 +153,7 @@ set(TV5PLG_FILES ${TV5PLG_SRC_FILES}
 				   
 add_library(tv5_3rdparty_plugins SHARED ${TV5PLG_FILES})
 
-target_link_libraries(tv5_3rdparty_plugins terralib_mod_plugin terralib_mod_qt_apf)
+target_link_libraries(tv5_3rdparty_plugins terralib_mod_core terralib_mod_qt_apf)
 
 qt5_use_modules(tv5_3rdparty_plugins Widgets)
 

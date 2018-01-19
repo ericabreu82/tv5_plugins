@@ -118,15 +118,14 @@ void te::qt::plugins::tv5plugins::PhotoIndexDialog::onOkPushButtonClicked()
     //create new data source
     boost::filesystem::path uri(repository);
 
-    std::map<std::string, std::string> dsInfo;
-    dsInfo["URI"] = uri.string();
+    std::string dsinfo("file://" + uri.string());
 
     boost::uuids::basic_random_generator<boost::mt19937> gen;
     boost::uuids::uuid u = gen();
     std::string id_ds = boost::uuids::to_string(u);
 
     te::da::DataSourceInfoPtr dsInfoPtr(new te::da::DataSourceInfo);
-    dsInfoPtr->setConnInfo(dsInfo);
+    dsInfoPtr->setConnInfo(dsinfo);
     dsInfoPtr->setTitle(uri.stem().string());
     dsInfoPtr->setAccessDriver("OGR");
     dsInfoPtr->setType("OGR");

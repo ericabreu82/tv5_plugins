@@ -27,7 +27,7 @@
 #define __TE_QT_PLUGINS_THIRDPARTY_INTERNAL_PLUGIN_H
 
 // TerraLib
-#include <terralib/plugin/Plugin.h>
+#include <terralib/core/plugin/CppPlugin.h>
 #include "Config.h"
 
 // Qt
@@ -57,13 +57,13 @@ namespace te
         class ProximityAction;
         class TileGeneratorAction;
         
-        class Plugin : public QObject, public te::plugin::Plugin
+        class Plugin : public QObject, public te::core::CppPlugin
         {
           Q_OBJECT
 
           public:
 
-            Plugin(const te::plugin::PluginInfo& pluginInfo);
+            Plugin(const te::core::PluginInfo& pluginInfo);
 
             ~Plugin();
 
@@ -107,7 +107,5 @@ namespace te
     }   // end namespace plugins
   }     // end namespace qt
 }       // end namespace te
-
-PLUGIN_CALL_BACK_DECLARATION(TV5PLUGINSDLLEXPORT);
 
 #endif //__TE_QT_PLUGINS_THIRDPARTY_INTERNAL_PLUGIN_H

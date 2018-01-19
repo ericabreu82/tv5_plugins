@@ -26,6 +26,7 @@
 #define __TE_QT_PLUGINS_THIRDPARTY_INTERNAL_FORESTMONITORCLASSIFICATION_H
 
 // TerraLib
+#include <terralib/core/uri/URI.h>
 #include <terralib/maptools/AbstractLayer.h>
 #include <terralib/rp/Filter.h>
 #include "../../Config.h"
@@ -76,9 +77,9 @@ namespace te
 
         void AssociateObjects(te::map::AbstractLayer* layer, std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& points, int srid);
 
-        void ExportVector(std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& ciVec, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid);
+        void ExportVector(std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& ciVec, std::string dataSetName, std::string dsType, const te::core::URI& connInfo, int srid);
 
-        void ExportPolyVector(std::vector<te::gm::Geometry*>& geomVec, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid);
+        void ExportPolyVector(std::vector<te::gm::Geometry*>& geomVec, std::string dataSetName, std::string dsType, const te::core::URI& connInfo, int srid);
 
         void ClearData(te::map::AbstractLayerPtr layer);
 

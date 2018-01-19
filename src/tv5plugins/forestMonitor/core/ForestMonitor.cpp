@@ -423,8 +423,8 @@ double te::qt::plugins::tv5plugins::ForestMonitor::getParcelLineAngle(te::gm::Ge
 
           assert(line && line->size() == 2);
 
-          std::auto_ptr<te::gm::Point> first(line->getPointN(0));
-          std::auto_ptr<te::gm::Point> last(line->getPointN(1));
+          std::unique_ptr<te::gm::Point> first(line->getPointN(0));
+          std::unique_ptr<te::gm::Point> last(line->getPointN(1));
 
           return getAngle(first.get(), last.get());
         }

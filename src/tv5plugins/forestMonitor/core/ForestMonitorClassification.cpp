@@ -250,7 +250,7 @@ void te::qt::plugins::tv5plugins::AssociateObjects(te::map::AbstractLayer* layer
   return;
 }
 
-void te::qt::plugins::tv5plugins::ExportVector(std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& ciVec, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid)
+void te::qt::plugins::tv5plugins::ExportVector(std::vector<te::qt::plugins::tv5plugins::CentroidInfo*>& ciVec, std::string dataSetName, std::string dsType, const te::core::URI& connInfo, int srid)
 {
   assert(!ciVec.empty());
 
@@ -330,8 +330,7 @@ void te::qt::plugins::tv5plugins::ExportVector(std::vector<te::qt::plugins::tv5p
   dataSetMem->moveBeforeFirst();
 
   //save data set
-  std::auto_ptr<te::da::DataSource> dataSource = te::da::DataSourceFactory::make(dsType);
-  dataSource->setConnectionInfo(connInfo);
+  std::unique_ptr<te::da::DataSource> dataSource = te::da::DataSourceFactory::make(dsType, connInfo);
   dataSource->open();
 
   std::map<std::string, std::string> options;
@@ -339,7 +338,7 @@ void te::qt::plugins::tv5plugins::ExportVector(std::vector<te::qt::plugins::tv5p
   dataSource->add(dataSetName, dataSetMem.get(), options);
 }
 
-void te::qt::plugins::tv5plugins::ExportPolyVector(std::vector<te::gm::Geometry*>& geomVec, std::string dataSetName, std::string dsType, std::map<std::string, std::string> connInfo, int srid)
+void te::qt::plugins::tv5plugins::ExportPolyVector(std::vector<te::gm::Geometry*>& geomVec, std::string dataSetName, std::string dsType, const te::core::URI& connInfo, int srid)
 {
   assert(!geomVec.empty());
 
@@ -392,8 +391,7 @@ void te::qt::plugins::tv5plugins::ExportPolyVector(std::vector<te::gm::Geometry*
   dataSetMem->moveBeforeFirst();
 
   //save data set
-  std::auto_ptr<te::da::DataSource> dataSource = te::da::DataSourceFactory::make(dsType);
-  dataSource->setConnectionInfo(connInfo);
+  std::unique_ptr<te::da::DataSource> dataSource = te::da::DataSourceFactory::make(dsType, connInfo);
   dataSource->open();
 
   std::map<std::string, std::string> options;
@@ -415,12 +413,12 @@ void te::qt::plugins::tv5plugins::ClearData(te::map::AbstractLayerPtr layer)
   std::string id_ds = boost::uuids::to_string(u);
 
   te::da::DataSourceInfoPtr dsInfoPtr(new te::da::DataSourceInfo);
-  dsInfoPtr->setConnInfo(connInfo);
-  dsInfoPtr->setTitle(repository);
-  dsInfoPtr->setAccessDriver("OGR");
-  dsInfoPtr->setType("OGR");
-  dsInfoPtr->setDescription(repository);
-  dsInfoPtr->setId(id_ds);
+  //dsInfoPtr->setConnInfo(connInfo);
+  //dsInfoPtr->setTitle(repository);
+  //dsInfoPtr->setAccessDriver("OGR");
+  //dsInfoPtr->setType("OGR");
+  //dsInfoPtr->setDescription(repository);
+  //dsInfoPtr->setId(id_ds);
 
   te::da::DataSourceInfoManager::getInstance().add(dsInfoPtr);
 

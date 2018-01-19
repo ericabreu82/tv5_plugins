@@ -94,7 +94,7 @@ te::qt::plugins::tv5plugins::TileGeneratorDialog::TileGeneratorDialog(QWidget* p
 te::qt::plugins::tv5plugins::TileGeneratorDialog::~TileGeneratorDialog()
 {
   if (m_clearTool)
-    m_appDisplay->setCurrentTool(0);
+    m_appDisplay->getDisplay()->setCurrentTool(0);
 }
 
 void te::qt::plugins::tv5plugins::TileGeneratorDialog::setExtentInfo(te::gm::Envelope env, int srid)
@@ -141,7 +141,7 @@ void te::qt::plugins::tv5plugins::TileGeneratorDialog::onToolButtonClicked(bool 
     return;
 
   te::qt::widgets::ExtentAcquire* ea = new te::qt::widgets::ExtentAcquire(m_appDisplay->getDisplay(), Qt::BlankCursor);
-  m_appDisplay->setCurrentTool(ea);
+  m_appDisplay->getDisplay()->setCurrentTool(ea);
 
   connect(ea, SIGNAL(extentAcquired(te::gm::Envelope)), this, SLOT(onEnvelopeAcquired(te::gm::Envelope)));
 
